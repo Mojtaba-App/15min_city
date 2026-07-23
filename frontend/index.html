@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>داشبورد تحلیل شهر ۱۵ دقیقه‌ای اهواز</title>
+
+  <!-- Vazirmatn Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --panel: #ffffff;
+      --panel-border: #dbe3ee;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --primary: #1565c0;
+      --primary-hover: #0d47a1;
+      --shadow: 0 10px 30px rgba(15, 23, 42, 0.10);
+
+      --score-0: #d50000;
+      --score-1: #ff6d00;
+      --score-2: #ffd600;
+      --score-3: #2962ff;
+      --score-4: #00c853;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: "Vazirmatn", Tahoma, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    body {
+      display: flex;
+      overflow: hidden;
+    }
+
+    #sidebar {
+      width: 370px;
+      min-width: 370px;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+      border-left: 1px solid var(--panel-border);
+      box-shadow: var(--shadow);
+      padding: 22px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      z-index: 1000;
+      overflow-y: auto;
+    }
+
+    #map {
+      flex: 1;
+      height: 100vh;
+      background: #eaf2fb;
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #e5edf6;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.3px;
+    }
+
+    .brand p {
+      margin: 0;
+      font-size: 0.92rem;
+      color: var(--muted);
+      line-height: 1.9;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
+    }
+
+    .card-title {
+      margin: 0 0 12px 0;
+      font-size: 1rem;
+      font-weight: 800;
+      color: #111827;
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .filter-group:last-child {
+      margin-bottom: 0;
+    }
+
+    label {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: #374151;
+    }
+
+    select {
+      width: 100%;
+      border: 1px solid #cfd8e3;
+      border-radius: 12px;
+      padding: 11px 12px;
+      font-family: inherit;
+      font-size: 0.95rem;
+      background: #fff;
+      color: #111827;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    select:focus {
+      border-color: #90caf9;
+      box-shadow: 0 0 0 4px rgba(21, 101, 192, 0.10);
+    }
+
+    button {
+      width: 100%;
+      border: none;
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-family: inherit;
+      font-size: 0.96rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--primary) 0%, #1976d2 100%);
+      color: #fff;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 8px 18px rgba(21, 101, 192, 0.22);
+    }
+
+    button:hover {
+      background: linear-gradient(135deg, var(--primary-hover) 0%, #1565c0 100%);
+      transform: translateY(-1px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .stat-box {
+      border-radius: 14px;
+      padding: 12px 14px;
+      background: linear-gradient(180deg, #f8fbff 0%, #eef5fc 100%);
+      border: 1px solid #d9e7f6;
+    }
+
+    .stat-label {
+      font-size: 0.84rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+
+    .stat-value {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: #0f172a;
+    }
+
+    .mini-note {
+      font-size: 0.82rem;
+      line-height: 1.9;
+      color: #6b7280;
+    }
+
+    .leaflet-popup-content-wrapper {
+      border-radius: 16px;
+      box-shadow: 0 14px 30px rgba(0,0,0,0.18);
+      font-family: "Vazirmatn", Tahoma, sans-serif;
+    }
+
+    .leaflet-popup-content {
+      margin: 14px 16px;
+      min-width: 220px;
+      line-height: 1.9;
+      font-size: 0.92rem;
+    }
+
+    .popup-title {
+      font-size: 0.98rem;
+      font-weight: 800;
+      margin-bottom: 8px;
+      color: #0f172a;
+    }
+
+    .popup-row {
+      margin-bottom: 4px;
+      color: #374151;
+    }
+
+    .popup-score {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      color: #fff;
+      font-weight: 800;
+      font-size: 0.88rem;
+    }
+
+    .service-list {
+      margin: 10px 0 0 0;
+      padding-right: 18px;
+      color: #1f2937;
+    }
+
+    .service-list li {
+      margin-bottom: 4px;
+    }
+
+    .legend {
+      background: rgba(255, 255, 255, 0.96);
+      padding: 12px 14px;
+      border-radius: 16px;
+      line-height: 1.9;
+      color: #374151;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.14);
+      border: 1px solid #e5e7eb;
+      font-family: "Vazirmatn", Tahoma, sans-serif;
+    }
+
+    .legend-title {
+      font-weight: 800;
+      margin-bottom: 8px;
+      color: #111827;
+      font-size: 0.9rem;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+      font-size: 0.85rem;
+    }
+
+    .legend-color {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      border: 1px solid rgba(0,0,0,0.15);
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 980px) {
+      body {
+        flex-direction: column;
+      }
+
+      #sidebar {
+        width: 100%;
+        min-width: 100%;
+        height: auto;
+        max-height: 45vh;
+        border-left: none;
+        border-bottom: 1px solid var(--panel-border);
+      }
+
+      #map {
+        height: 55vh;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <aside id="sidebar">
+    <div class="brand">
+      <h1>داشبورد شهر ۱۵ دقیقه‌ای اهواز</h1>
+      <p>
+        نمایش و تحلیل فضایی دسترسی بلوک‌های شهری به خدمات پایه شامل آموزش،
+        سلامت، خرید روزانه و تفریح/ورزش
+      </p>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">تنظیمات نمایش</h2>
+
+      <div class="filter-group">
+        <label for="limit-select">تعداد بلوک‌های نمایشی</label>
+        <select id="limit-select">
+          <option value="300">۳۰۰ بلوک</option>
+          <option value="500">۵۰۰ بلوک</option>
+          <option value="1500" selected>۱۵۰۰ بلوک</option>
+          <option value="5000">۵۰۰۰ بلوک</option>
+          <option value="13464">کل بلوک‌ها (۱۳۴۶۴)</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="score-filter">فیلتر بر اساس امتیاز دسترسی</label>
+        <select id="score-filter">
+          <option value="all">همه بلوک‌ها</option>
+          <option value="0">امتیاز ۰ — بحرانی</option>
+          <option value="1">امتیاز ۱ — ضعیف</option>
+          <option value="2">امتیاز ۲ — متوسط</option>
+          <option value="3">امتیاز ۳ — خوب</option>
+          <option value="4">امتیاز ۴ — عالی</option>
+        </select>
+      </div>
+
+      <button id="btn-load">بارگذاری داده‌ها</button>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">خلاصه آماری</h2>
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-label">میانگین امتیاز دسترسی</div>
+          <div class="stat-value" id="avg-score-text">در حال بارگذاری...</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">تعداد کل بلوک‌ها</div>
+          <div class="stat-value" id="total-blocks-text">۱۳۴۶۴</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">راهنمای تفسیر نقشه</h2>
+      <div class="mini-note">
+        رنگ بلوک‌ها نشان‌دهنده سطح دسترسی به خدمات پایه در الگوی شهر
+        ۱۵ دقیقه‌ای است. هرچه رنگ به سمت سبز برود، وضعیت دسترسی مطلوب‌تر
+        و هرچه به سمت قرمز برود، کمبود خدمات بیشتر است.
+      </div>
+    </div>
+  </aside>
+
+  <main id="map"></main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    const API_BASE = 'http://127.0.0.1:8000/accessibility';
+
+    // لایه‌های پایه نقشه
+    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap contributors'
+    });
+
+    const esriSatelliteLayer = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      {
+        maxZoom: 19,
+        attribution: 'Tiles © Esri'
+      }
+    );
+
+    const map = L.map('map', {
+      zoomControl: true,
+      layers: [osmLayer]
+    }).setView([31.27, 48.74], 13);
+
+    let geojsonLayer = null;
+    let layerControl = null;
+
+    function getColor(score) {
+      score = Number(score);
+
+      return score === 4 ? '#00C853' :
+             score === 3 ? '#2962FF' :
+             score === 2 ? '#FFD600' :
+             score === 1 ? '#FF6D00' :
+                           '#D50000';
+    }
+
+    function getScoreLabel(score) {
+      score = Number(score);
+
+      return score === 4 ? 'عالی' :
+             score === 3 ? 'خوب' :
+             score === 2 ? 'متوسط' :
+             score === 1 ? 'ضعیف' : 'بحرانی';
+    }
+
+    function styleFeature(feature) {
+      return {
+        fillColor: getColor(feature.properties.score),
+        weight: 1.4,
+        opacity: 1,
+        color: '#202833',
+        fillOpacity: 0.86
+      };
+    }
+
+    function highlightFeature(e) {
+      const layer = e.target;
+      layer.setStyle({
+        weight: 3,
+        color: '#000000',
+        fillOpacity: 0.96
+      });
+
+      if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+        layer.bringToFront();
+      }
+    }
+
+    function resetHighlight(e) {
+      if (geojsonLayer) {
+        geojsonLayer.resetStyle(e.target);
+      }
+    }
+
+    function formatServiceStatus(value) {
+      return Number(value) === 1 ? '✅ دارد' : '❌ ندارد';
+    }
+
+    function onEachFeature(feature, layer) {
+      const props = feature.properties;
+      const scoreColor = getColor(props.score);
+
+      const popupContent = `
+        <div style="direction: rtl; text-align: right; font-family: Vazirmatn, Tahoma, sans-serif;">
+          <div class="popup-title">اطلاعات بلوک شهری</div>
+          <div class="popup-row"><strong>کد بلوک:</strong> ${props.block_gid ?? '-'}</div>
+          <div class="popup-row"><strong>فاصله تا شبکه معابر:</strong> ${Math.round(props.distance_to_network ?? 0)} متر</div>
+          <div class="popup-row">
+            <strong>وضعیت دسترسی:</strong>
+            <span class="popup-score" style="background:${scoreColor}">
+              ${props.score ?? 0} از ۴ — ${getScoreLabel(props.score)}
+            </span>
+          </div>
+          <ul class="service-list">
+            <li><strong>آموزش:</strong> ${formatServiceStatus(props.has_education)}</li>
+            <li><strong>سلامت:</strong> ${formatServiceStatus(props.has_health)}</li>
+            <li><strong>خرید روزانه:</strong> ${formatServiceStatus(props.has_shopping)}</li>
+            <li><strong>تفریح / ورزش:</strong> ${formatServiceStatus(props.has_recreation)}</li>
+          </ul>
+        </div>
+      `;
+
+      layer.bindPopup(popupContent);
+
+      layer.on({
+        mouseover: highlightFeature,
+        mouseout: resetHighlight
+      });
+    }
+
+    function setupLayerControl() {
+      if (layerControl) {
+        map.removeControl(layerControl);
+      }
+
+      const baseMaps = {
+        "نقشه خیابانی (OSM)": osmLayer,
+        "نقشه ماهواره‌ای (Esri)": esriSatelliteLayer
+      };
+
+      const overlayMaps = {};
+
+      if (geojsonLayer) {
+        overlayMaps["بلوک‌های شهری"] = geojsonLayer;
+      }
+
+      layerControl = L.control.layers(baseMaps, overlayMaps, {
+        position: 'topright',
+        collapsed: false
+      }).addTo(map);
+    }
+
+    async function fetchSummary() {
+      try {
+        const response = await fetch(`${API_BASE}/summary`);
+        const data = await response.json();
+
+        if (data.statistics) {
+          document.getElementById('avg-score-text').textContent =
+            `${data.statistics.avg_score} از ۴`;
+        }
+      } catch (error) {
+        console.error('Summary load error:', error);
+        document.getElementById('avg-score-text').textContent = 'خطا در دریافت';
+      }
+    }
+
+    async function loadGeoJson() {
+      const button = document.getElementById('btn-load');
+      const limit = document.getElementById('limit-select').value;
+      const scoreFilter = document.getElementById('score-filter').value;
+
+      let url = `${API_BASE}/geojson?limit=${limit}`;
+
+      if (scoreFilter !== 'all') {
+        url += `&min_score=${scoreFilter}&max_score=${scoreFilter}`;
+      }
+
+      button.textContent = 'در حال بارگذاری...';
+      button.disabled = true;
+
+      if (geojsonLayer) {
+        map.removeLayer(geojsonLayer);
+      }
+
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+
+        geojsonLayer = L.geoJSON(data, {
+          style: styleFeature,
+          onEachFeature: onEachFeature
+        }).addTo(map);
+
+        setupLayerControl();
+
+        if (data.features && data.features.length > 0) {
+          map.fitBounds(geojsonLayer.getBounds(), { padding: [20, 20] });
+        }
+      } catch (error) {
+        console.error('GeoJSON load error:', error);
+        alert('خطا در دریافت داده‌های نقشه از بک‌اند. از اجرای FastAPI مطمئن شوید.');
+      } finally {
+        button.textContent = 'بارگذاری داده‌ها';
+        button.disabled = false;
+      }
+    }
+
+    const legend = L.control({ position: 'bottomleft' });
+
+    legend.onAdd = function () {
+      const div = L.DomUtil.create('div', 'legend');
+
+      const items = [
+        { score: 0, label: 'بحرانی' },
+        { score: 1, label: 'ضعیف' },
+        { score: 2, label: 'متوسط' },
+        { score: 3, label: 'خوب' },
+        { score: 4, label: 'عالی' }
+      ];
+
+      let html = `<div class="legend-title">راهنمای امتیاز دسترسی</div>`;
+
+      items.forEach(item => {
+        html += `
+          <div class="legend-item">
+            <span class="legend-color" style="background:${getColor(item.score)}"></span>
+            <span>امتیاز ${item.score} — ${item.label}</span>
+          </div>
+        `;
+      });
+
+      div.innerHTML = html;
+      return div;
+    };
+
+    legend.addTo(map);
+
+    document.getElementById('btn-load').addEventListener('click', loadGeoJson);
+
+    window.onload = () => {
+      setupLayerControl();
+      fetchSummary();
+      loadGeoJson();
+    };
+  </script>
+</body>
+</html>
