@@ -5,16 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>داشبورد تحلیل شهر ۱۵ دقیقه‌ای اهواز</title>
 
-  <!-- Vazirmatn Font -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;800&display=swap" rel="stylesheet">
-
-  <!-- Leaflet CSS -->
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
   <style>
     :root {
@@ -26,7 +20,6 @@
       --primary: #1565c0;
       --primary-hover: #0d47a1;
       --shadow: 0 10px 30px rgba(15, 23, 42, 0.10);
-
       --score-0: #d50000;
       --score-1: #ff6d00;
       --score-2: #ffd600;
@@ -34,9 +27,7 @@
       --score-4: #00c853;
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     html, body {
       margin: 0;
@@ -53,15 +44,15 @@
     }
 
     #sidebar {
-      width: 370px;
-      min-width: 370px;
+      width: 390px;
+      min-width: 390px;
       background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
       border-left: 1px solid var(--panel-border);
       box-shadow: var(--shadow);
       padding: 22px 18px;
       display: flex;
       flex-direction: column;
-      gap: 18px;
+      gap: 16px;
       z-index: 1000;
       overflow-y: auto;
     }
@@ -82,30 +73,29 @@
 
     .brand h1 {
       margin: 0;
-      font-size: 1.35rem;
+      font-size: 1.3rem;
       font-weight: 800;
       color: #0f172a;
-      letter-spacing: -0.3px;
     }
 
     .brand p {
       margin: 0;
-      font-size: 0.92rem;
+      font-size: 0.9rem;
       color: var(--muted);
-      line-height: 1.9;
+      line-height: 1.8;
     }
 
     .card {
       background: var(--panel);
       border: 1px solid var(--panel-border);
       border-radius: 16px;
-      padding: 16px;
+      padding: 14px;
       box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
     }
 
     .card-title {
       margin: 0 0 12px 0;
-      font-size: 1rem;
+      font-size: 0.98rem;
       font-weight: 800;
       color: #111827;
     }
@@ -114,15 +104,13 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
 
-    .filter-group:last-child {
-      margin-bottom: 0;
-    }
+    .filter-group:last-child { margin-bottom: 0; }
 
     label {
-      font-size: 0.92rem;
+      font-size: 0.88rem;
       font-weight: 700;
       color: #374151;
     }
@@ -131,13 +119,12 @@
       width: 100%;
       border: 1px solid #cfd8e3;
       border-radius: 12px;
-      padding: 11px 12px;
+      padding: 10px 12px;
       font-family: inherit;
-      font-size: 0.95rem;
+      font-size: 0.92rem;
       background: #fff;
       color: #111827;
       outline: none;
-      transition: all 0.2s ease;
     }
 
     select:focus {
@@ -151,53 +138,102 @@
       border-radius: 12px;
       padding: 12px 14px;
       font-family: inherit;
-      font-size: 0.96rem;
+      font-size: 0.94rem;
       font-weight: 800;
       background: linear-gradient(135deg, var(--primary) 0%, #1976d2 100%);
       color: #fff;
       cursor: pointer;
-      transition: all 0.2s ease;
       box-shadow: 0 8px 18px rgba(21, 101, 192, 0.22);
     }
 
     button:hover {
       background: linear-gradient(135deg, var(--primary-hover) 0%, #1565c0 100%);
-      transform: translateY(-1px);
     }
 
-    button:active {
-      transform: translateY(0);
+    button:disabled {
+      opacity: 0.65;
+      cursor: wait;
     }
 
     .stats-grid {
       display: grid;
-      grid-template-columns: 1fr;
-      gap: 10px;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
     }
 
     .stat-box {
-      border-radius: 14px;
-      padding: 12px 14px;
+      border-radius: 12px;
+      padding: 10px 12px;
       background: linear-gradient(180deg, #f8fbff 0%, #eef5fc 100%);
       border: 1px solid #d9e7f6;
     }
 
+    .stat-box.wide { grid-column: 1 / -1; }
+
     .stat-label {
-      font-size: 0.84rem;
+      font-size: 0.78rem;
       color: var(--muted);
-      margin-bottom: 6px;
+      margin-bottom: 4px;
       font-weight: 600;
     }
 
     .stat-value {
-      font-size: 1.1rem;
+      font-size: 1rem;
       font-weight: 800;
       color: #0f172a;
     }
 
-    .mini-note {
+    .coverage-row, .hist-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
       font-size: 0.82rem;
-      line-height: 1.9;
+    }
+
+    .coverage-row:last-child, .hist-row:last-child { margin-bottom: 0; }
+
+    .coverage-name, .hist-label {
+      width: 88px;
+      flex-shrink: 0;
+      font-weight: 700;
+      color: #374151;
+    }
+
+    .bar-track {
+      flex: 1;
+      height: 10px;
+      background: #e8eef5;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: #1565c0;
+      min-width: 0;
+      transition: width 0.35s ease;
+    }
+
+    .bar-meta {
+      width: 64px;
+      text-align: left;
+      color: #64748b;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .status-line {
+      font-size: 0.8rem;
+      color: var(--muted);
+      min-height: 1.4em;
+    }
+
+    .status-line.error { color: #b91c1c; }
+
+    .mini-note {
+      font-size: 0.8rem;
+      line-height: 1.8;
       color: #6b7280;
     }
 
@@ -221,10 +257,7 @@
       color: #0f172a;
     }
 
-    .popup-row {
-      margin-bottom: 4px;
-      color: #374151;
-    }
+    .popup-row { margin-bottom: 4px; color: #374151; }
 
     .popup-score {
       display: inline-block;
@@ -240,10 +273,6 @@
       margin: 10px 0 0 0;
       padding-right: 18px;
       color: #1f2937;
-    }
-
-    .service-list li {
-      margin-bottom: 4px;
     }
 
     .legend {
@@ -281,27 +310,20 @@
     }
 
     @media (max-width: 980px) {
-      body {
-        flex-direction: column;
-      }
-
+      body { flex-direction: column; }
       #sidebar {
         width: 100%;
         min-width: 100%;
         height: auto;
-        max-height: 45vh;
+        max-height: 48vh;
         border-left: none;
         border-bottom: 1px solid var(--panel-border);
       }
-
-      #map {
-        height: 55vh;
-      }
+      #map { height: 52vh; }
     }
   </style>
 </head>
 <body>
-
   <aside id="sidebar">
     <div class="brand">
       <h1>داشبورد شهر ۱۵ دقیقه‌ای اهواز</h1>
@@ -315,6 +337,14 @@
       <h2 class="card-title">تنظیمات نمایش</h2>
 
       <div class="filter-group">
+        <label for="source-select">منبع داده</label>
+        <select id="source-select">
+          <option value="current" selected>نتیجه جاری (live)</option>
+          <option value="paper_baseline">نسخه پایه مقاله (baseline)</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
         <label for="limit-select">تعداد بلوک‌های نمایشی</label>
         <select id="limit-select">
           <option value="300">۳۰۰ بلوک</option>
@@ -326,7 +356,7 @@
       </div>
 
       <div class="filter-group">
-        <label for="score-filter">فیلتر بر اساس امتیاز دسترسی</label>
+        <label for="score-filter">فیلتر امتیاز دسترسی</label>
         <select id="score-filter">
           <option value="all">همه بلوک‌ها</option>
           <option value="0">امتیاز ۰ — بحرانی</option>
@@ -337,122 +367,151 @@
         </select>
       </div>
 
+      <div class="filter-group">
+        <label for="missing-category">کمبود خدمت (فاقد دسترسی)</label>
+        <select id="missing-category">
+          <option value="all">بدون فیلتر کمبود</option>
+          <option value="education">فاقد آموزش</option>
+          <option value="health">فاقد سلامت</option>
+          <option value="shopping">فاقد خرید روزانه</option>
+          <option value="recreation">فاقد تفریح / ورزش</option>
+        </select>
+      </div>
+
       <button id="btn-load">بارگذاری داده‌ها</button>
+      <div class="status-line" id="load-status"></div>
     </div>
 
     <div class="card">
       <h2 class="card-title">خلاصه آماری</h2>
       <div class="stats-grid">
         <div class="stat-box">
-          <div class="stat-label">میانگین امتیاز دسترسی</div>
-          <div class="stat-value" id="avg-score-text">در حال بارگذاری...</div>
+          <div class="stat-label">میانگین امتیاز</div>
+          <div class="stat-value" id="avg-score-text">—</div>
         </div>
         <div class="stat-box">
-          <div class="stat-label">تعداد کل بلوک‌ها</div>
-          <div class="stat-value" id="total-blocks-text">۱۳۴۶۴</div>
+          <div class="stat-label">تعداد بلوک‌ها</div>
+          <div class="stat-value" id="total-blocks-text">—</div>
         </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">پوشش خدمات</h2>
+      <div id="coverage-panel">
+        <div class="status-line">در حال بارگذاری...</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">توزیع امتیاز (Histogram)</h2>
+      <div id="histogram-panel">
+        <div class="status-line">در حال بارگذاری...</div>
       </div>
     </div>
 
     <div class="card">
       <h2 class="card-title">راهنمای تفسیر نقشه</h2>
       <div class="mini-note">
-        رنگ بلوک‌ها نشان‌دهنده سطح دسترسی به خدمات پایه در الگوی شهر
-        ۱۵ دقیقه‌ای است. هرچه رنگ به سمت سبز برود، وضعیت دسترسی مطلوب‌تر
-        و هرچه به سمت قرمز برود، کمبود خدمات بیشتر است.
+        رنگ بلوک‌ها سطح دسترسی به چهار دسته خدمت را نشان می‌دهد.
+        لایه‌های مرز شهر و محلات را از کنترل لایه‌ها در گوشه نقشه روشن کنید.
       </div>
     </div>
   </aside>
 
   <main id="map"></main>
 
+  <script src="config.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
   <script>
-    const API_BASE = 'http://127.0.0.1:8000/accessibility';
+    const API_BASE = (window.APP_CONFIG && window.APP_CONFIG.API_BASE)
+      || "http://127.0.0.1:8000/accessibility";
 
-    // لایه‌های پایه نقشه
-    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    const SCORE_LABELS = {
+      0: "بحرانی",
+      1: "ضعیف",
+      2: "متوسط",
+      3: "خوب",
+      4: "عالی",
+    };
+
+    const CATEGORY_LABELS = {
+      education: "آموزش",
+      health: "سلامت",
+      shopping: "خرید",
+      recreation: "تفریح",
+    };
+
+    const osmLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
-      attribution: '© OpenStreetMap contributors'
+      attribution: "© OpenStreetMap contributors",
     });
 
     const esriSatelliteLayer = L.tileLayer(
-      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      {
-        maxZoom: 19,
-        attribution: 'Tiles © Esri'
-      }
+      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      { maxZoom: 19, attribution: "Tiles © Esri" }
     );
 
-    const map = L.map('map', {
+    const map = L.map("map", {
       zoomControl: true,
-      layers: [osmLayer]
+      layers: [osmLayer],
     }).setView([31.27, 48.74], 13);
 
     let geojsonLayer = null;
+    let boundaryLayer = null;
+    let neighborhoodsLayer = null;
     let layerControl = null;
 
     function getColor(score) {
       score = Number(score);
-
-      return score === 4 ? '#00C853' :
-             score === 3 ? '#2962FF' :
-             score === 2 ? '#FFD600' :
-             score === 1 ? '#FF6D00' :
-                           '#D50000';
+      return score === 4 ? "#00C853"
+        : score === 3 ? "#2962FF"
+        : score === 2 ? "#FFD600"
+        : score === 1 ? "#FF6D00"
+        : "#D50000";
     }
 
     function getScoreLabel(score) {
-      score = Number(score);
+      return SCORE_LABELS[Number(score)] || "بحرانی";
+    }
 
-      return score === 4 ? 'عالی' :
-             score === 3 ? 'خوب' :
-             score === 2 ? 'متوسط' :
-             score === 1 ? 'ضعیف' : 'بحرانی';
+    function toFaDigits(value) {
+      return String(value).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[d]);
     }
 
     function styleFeature(feature) {
       return {
         fillColor: getColor(feature.properties.score),
-        weight: 1.4,
+        weight: 1.2,
         opacity: 1,
-        color: '#202833',
-        fillOpacity: 0.86
+        color: "#202833",
+        fillOpacity: 0.86,
       };
     }
 
     function highlightFeature(e) {
       const layer = e.target;
-      layer.setStyle({
-        weight: 3,
-        color: '#000000',
-        fillOpacity: 0.96
-      });
-
+      layer.setStyle({ weight: 3, color: "#000000", fillOpacity: 0.96 });
       if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
         layer.bringToFront();
       }
     }
 
     function resetHighlight(e) {
-      if (geojsonLayer) {
-        geojsonLayer.resetStyle(e.target);
-      }
+      if (geojsonLayer) geojsonLayer.resetStyle(e.target);
     }
 
     function formatServiceStatus(value) {
-      return Number(value) === 1 ? '✅ دارد' : '❌ ندارد';
+      return Number(value) === 1 ? "دارد" : "ندارد";
     }
 
     function onEachFeature(feature, layer) {
       const props = feature.properties;
       const scoreColor = getColor(props.score);
-
-      const popupContent = `
+      layer.bindPopup(`
         <div style="direction: rtl; text-align: right; font-family: Vazirmatn, Tahoma, sans-serif;">
           <div class="popup-title">اطلاعات بلوک شهری</div>
-          <div class="popup-row"><strong>کد بلوک:</strong> ${props.block_gid ?? '-'}</div>
+          <div class="popup-row"><strong>کد بلوک:</strong> ${props.block_gid ?? "-"}</div>
           <div class="popup-row"><strong>فاصله تا شبکه معابر:</strong> ${Math.round(props.distance_to_network ?? 0)} متر</div>
           <div class="popup-row">
             <strong>وضعیت دسترسی:</strong>
@@ -467,129 +526,242 @@
             <li><strong>تفریح / ورزش:</strong> ${formatServiceStatus(props.has_recreation)}</li>
           </ul>
         </div>
-      `;
-
-      layer.bindPopup(popupContent);
-
-      layer.on({
-        mouseover: highlightFeature,
-        mouseout: resetHighlight
-      });
+      `);
+      layer.on({ mouseover: highlightFeature, mouseout: resetHighlight });
     }
 
     function setupLayerControl() {
-      if (layerControl) {
-        map.removeControl(layerControl);
-      }
+      if (layerControl) map.removeControl(layerControl);
 
       const baseMaps = {
         "نقشه خیابانی (OSM)": osmLayer,
-        "نقشه ماهواره‌ای (Esri)": esriSatelliteLayer
+        "نقشه ماهواره‌ای (Esri)": esriSatelliteLayer,
       };
 
       const overlayMaps = {};
-
-      if (geojsonLayer) {
-        overlayMaps["بلوک‌های شهری"] = geojsonLayer;
-      }
+      if (geojsonLayer) overlayMaps["بلوک‌های شهری"] = geojsonLayer;
+      if (boundaryLayer) overlayMaps["مرز شهر"] = boundaryLayer;
+      if (neighborhoodsLayer) overlayMaps["محلات"] = neighborhoodsLayer;
 
       layerControl = L.control.layers(baseMaps, overlayMaps, {
-        position: 'topright',
-        collapsed: false
+        position: "topright",
+        collapsed: false,
       }).addTo(map);
+    }
+
+    function setStatus(message, isError) {
+      const el = document.getElementById("load-status");
+      el.textContent = message || "";
+      el.classList.toggle("error", Boolean(isError));
+    }
+
+    function renderCoverage(metrics) {
+      const panel = document.getElementById("coverage-panel");
+      if (!metrics) {
+        panel.innerHTML = '<div class="status-line error">داده پوشش در دسترس نیست</div>';
+        return;
+      }
+
+      panel.innerHTML = Object.keys(CATEGORY_LABELS).map((key) => {
+        const item = metrics[key] || { percentage: 0, count: 0 };
+        const pct = Number(item.percentage) || 0;
+        return `
+          <div class="coverage-row">
+            <div class="coverage-name">${CATEGORY_LABELS[key]}</div>
+            <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+            <div class="bar-meta">${toFaDigits(pct)}٪</div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderHistogram(buckets) {
+      const panel = document.getElementById("histogram-panel");
+      const byScore = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 };
+      (buckets || []).forEach((b) => {
+        byScore[Number(b.score)] = Number(b.count) || 0;
+      });
+      const maxCount = Math.max(...Object.values(byScore), 1);
+
+      panel.innerHTML = [0, 1, 2, 3, 4].map((score) => {
+        const count = byScore[score];
+        const width = Math.round((count / maxCount) * 100);
+        return `
+          <div class="hist-row">
+            <div class="hist-label">${score} — ${SCORE_LABELS[score]}</div>
+            <div class="bar-track">
+              <div class="bar-fill" style="width:${width}%; background:${getColor(score)}"></div>
+            </div>
+            <div class="bar-meta">${toFaDigits(count)}</div>
+          </div>
+        `;
+      }).join("");
     }
 
     async function fetchSummary() {
       try {
         const response = await fetch(`${API_BASE}/summary`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
 
-        if (data.statistics) {
-          document.getElementById('avg-score-text').textContent =
-            `${data.statistics.avg_score} از ۴`;
-        }
+        document.getElementById("avg-score-text").textContent =
+          data.statistics ? `${toFaDigits(data.statistics.avg_score)} از ۴` : "—";
+        document.getElementById("total-blocks-text").textContent =
+          data.total_blocks != null ? toFaDigits(data.total_blocks) : "—";
+        renderCoverage(data.coverage_metrics);
       } catch (error) {
-        console.error('Summary load error:', error);
-        document.getElementById('avg-score-text').textContent = 'خطا در دریافت';
+        console.error("Summary load error:", error);
+        document.getElementById("avg-score-text").textContent = "خطا";
+        document.getElementById("coverage-panel").innerHTML =
+          '<div class="status-line error">خطا در دریافت خلاصه</div>';
       }
     }
 
-    async function loadGeoJson() {
-      const button = document.getElementById('btn-load');
-      const limit = document.getElementById('limit-select').value;
-      const scoreFilter = document.getElementById('score-filter').value;
+    async function fetchHistogram() {
+      try {
+        const response = await fetch(`${API_BASE}/histogram`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        renderHistogram(data.histogram);
+      } catch (error) {
+        console.error("Histogram load error:", error);
+        document.getElementById("histogram-panel").innerHTML =
+          '<div class="status-line error">خطا در دریافت هیستوگرام</div>';
+      }
+    }
 
-      let url = `${API_BASE}/geojson?limit=${limit}`;
+    async function loadContextLayers() {
+      try {
+        const [boundaryRes, neighborhoodsRes] = await Promise.all([
+          fetch(`${API_BASE}/boundary`),
+          fetch(`${API_BASE}/neighborhoods`),
+        ]);
 
-      if (scoreFilter !== 'all') {
-        url += `&min_score=${scoreFilter}&max_score=${scoreFilter}`;
+        if (boundaryLayer) {
+          map.removeLayer(boundaryLayer);
+          boundaryLayer = null;
+        }
+        if (neighborhoodsLayer) {
+          map.removeLayer(neighborhoodsLayer);
+          neighborhoodsLayer = null;
+        }
+
+        if (boundaryRes.ok) {
+          const boundaryData = await boundaryRes.json();
+          if (boundaryData.features && boundaryData.features.length) {
+            boundaryLayer = L.geoJSON(boundaryData, {
+              style: {
+                color: "#0f172a",
+                weight: 2.5,
+                fillOpacity: 0,
+                dashArray: "6 4",
+              },
+            });
+          }
+        }
+
+        if (neighborhoodsRes.ok) {
+          const neighborhoodsData = await neighborhoodsRes.json();
+          if (neighborhoodsData.features && neighborhoodsData.features.length) {
+            neighborhoodsLayer = L.geoJSON(neighborhoodsData, {
+              style: {
+                color: "#475569",
+                weight: 1,
+                fillColor: "#94a3b8",
+                fillOpacity: 0.08,
+              },
+              onEachFeature(feature, layer) {
+                const name = feature.properties && feature.properties.name;
+                if (name) layer.bindTooltip(name, { sticky: true });
+              },
+            });
+          }
+        }
+      } catch (error) {
+        console.warn("Context layers skipped:", error);
       }
 
-      button.textContent = 'در حال بارگذاری...';
+      setupLayerControl();
+    }
+
+    async function loadGeoJson() {
+      const button = document.getElementById("btn-load");
+      const limit = document.getElementById("limit-select").value;
+      const scoreFilter = document.getElementById("score-filter").value;
+      const missingCategory = document.getElementById("missing-category").value;
+      const source = document.getElementById("source-select").value;
+
+      const params = new URLSearchParams({ limit, source });
+      if (scoreFilter !== "all") {
+        params.set("min_score", scoreFilter);
+        params.set("max_score", scoreFilter);
+      }
+      if (missingCategory !== "all") {
+        params.set("missing_category", missingCategory);
+      }
+
       button.disabled = true;
+      button.textContent = "در حال بارگذاری...";
+      setStatus("درخواست به API ارسال شد...");
 
       if (geojsonLayer) {
         map.removeLayer(geojsonLayer);
+        geojsonLayer = null;
       }
 
       try {
-        const response = await fetch(url);
+        const response = await fetch(`${API_BASE}/geojson?${params.toString()}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
+        const count = (data.features && data.features.length) || 0;
 
         geojsonLayer = L.geoJSON(data, {
           style: styleFeature,
-          onEachFeature: onEachFeature
+          onEachFeature,
         }).addTo(map);
 
         setupLayerControl();
 
-        if (data.features && data.features.length > 0) {
+        if (count > 0) {
           map.fitBounds(geojsonLayer.getBounds(), { padding: [20, 20] });
+          setStatus(`${toFaDigits(count)} عارضه بارگذاری شد.`);
+        } else {
+          setStatus("برای این فیلتر عارضه‌ای یافت نشد.", true);
         }
       } catch (error) {
-        console.error('GeoJSON load error:', error);
-        alert('خطا در دریافت داده‌های نقشه از بک‌اند. از اجرای FastAPI مطمئن شوید.');
+        console.error("GeoJSON load error:", error);
+        setStatus("خطا در دریافت داده نقشه. از اجرای API مطمئن شوید.", true);
       } finally {
-        button.textContent = 'بارگذاری داده‌ها';
+        button.textContent = "بارگذاری داده‌ها";
         button.disabled = false;
       }
     }
 
-    const legend = L.control({ position: 'bottomleft' });
-
+    const legend = L.control({ position: "bottomleft" });
     legend.onAdd = function () {
-      const div = L.DomUtil.create('div', 'legend');
-
-      const items = [
-        { score: 0, label: 'بحرانی' },
-        { score: 1, label: 'ضعیف' },
-        { score: 2, label: 'متوسط' },
-        { score: 3, label: 'خوب' },
-        { score: 4, label: 'عالی' }
-      ];
-
-      let html = `<div class="legend-title">راهنمای امتیاز دسترسی</div>`;
-
-      items.forEach(item => {
-        html += `
+      const div = L.DomUtil.create("div", "legend");
+      const items = [0, 1, 2, 3, 4].map((score) => ({
+        score,
+        label: SCORE_LABELS[score],
+      }));
+      div.innerHTML = `<div class="legend-title">راهنمای امتیاز دسترسی</div>` +
+        items.map((item) => `
           <div class="legend-item">
             <span class="legend-color" style="background:${getColor(item.score)}"></span>
             <span>امتیاز ${item.score} — ${item.label}</span>
           </div>
-        `;
-      });
-
-      div.innerHTML = html;
+        `).join("");
       return div;
     };
-
     legend.addTo(map);
 
-    document.getElementById('btn-load').addEventListener('click', loadGeoJson);
+    document.getElementById("btn-load").addEventListener("click", loadGeoJson);
 
     window.onload = () => {
       setupLayerControl();
       fetchSummary();
+      fetchHistogram();
+      loadContextLayers();
       loadGeoJson();
     };
   </script>

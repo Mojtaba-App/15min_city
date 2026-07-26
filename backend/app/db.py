@@ -1,27 +1,24 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
+
 from app.config import DATABASE_URL
 
-# ایجاد engine با تست اتصال اتوماتیک
 engine = create_engine(
     DATABASE_URL,
-    pool_pre_ping=True,          # اگر connection قطع شده باشد، دوباره وصل می‌شود
+    pool_pre_ping=True,
     pool_size=10,
-    max_overflow=20
+    max_overflow=20,
 )
 
-# ساخت SessionLocal
 SessionLocal = sessionmaker(
     autocommit=False,
     autoflush=False,
-    bind=engine
+    bind=engine,
 )
 
 
 def get_db():
-    """
-    Dependency برای FastAPI: در هر درخواست یک session بده و بعد ببند.
-    """
+    """Yield a DB session per request and close it afterwards."""
     db = SessionLocal()
     try:
         yield db
@@ -29,13 +26,11 @@ def get_db():
         db.close()
 
 
-def check_db_connection():
-    """
-    تست اتصال دیتابیس برای health-check
-    """
+def check_db_connection() -> bool:
+    """Return True if a simple DB round-trip succeeds."""
     try:
         with engine.connect() as conn:
-            conn.execute("SELECT 1")
+            conn.execute(text("SELECT 1"))
         return True
     except Exception:
         return False

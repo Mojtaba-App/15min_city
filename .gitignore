@@ -1,2 +1,6 @@
-.env.example
 /.venv
+backend/.env
+frontend/.env
+outputs/*.dump
+outputs/*.geojson
+!outputs/.gitkeep

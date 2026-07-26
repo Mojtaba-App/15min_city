@@ -51,3 +51,7 @@ This project measures pedestrian accessibility to essential urban services withi
 ## Threshold
 - Walking speed: 1.2 m/s
 - Time threshold: 900 seconds
+
+## Reproducibility
+Paper results are frozen via `sql/08_analysis_runs.sql` and `sql/09_freeze_paper_baseline.sql`.
+See `docs/reproducibility.md`. The live API reads `v_block_accessibility_15min`; the paper snapshot is exposed as `v_paper_baseline_accessibility`.
