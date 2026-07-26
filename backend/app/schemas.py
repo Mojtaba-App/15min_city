@@ -21,6 +21,7 @@ class AccessibilitySummaryResponse(BaseModel):
     total_blocks: int
     statistics: SummaryStatistics
     coverage_metrics: dict[str, CategoryCoverage]
+    source: str | None = None
     message: str | None = None
 
 
@@ -31,6 +32,7 @@ class HistogramBucket(BaseModel):
 
 class HistogramResponse(BaseModel):
     histogram: list[HistogramBucket]
+    source: str | None = None
 
 
 class AccessibilityBlock(BaseModel):
@@ -78,3 +80,31 @@ class DataQualityCheck(BaseModel):
 
 class DataQualityResponse(BaseModel):
     checks: list[DataQualityCheck]
+
+
+class ScenarioCompareResponse(BaseModel):
+    base_run: str
+    other_run: str
+    total_blocks: int
+    improved_blocks: int
+    worsened_blocks: int
+    unchanged_blocks: int
+    avg_score_base: float
+    avg_score_other: float
+    avg_score_delta: float
+
+
+class NeighborhoodSummaryItem(BaseModel):
+    neighborhood_name: str
+    block_count: int
+    avg_score: float
+    pct_education: float
+    pct_health: float
+    pct_shopping: float
+    pct_recreation: float
+
+
+class NeighborhoodSummaryResponse(BaseModel):
+    available: bool
+    neighborhoods: list[NeighborhoodSummaryItem] = []
+    message: str | None = None

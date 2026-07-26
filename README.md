@@ -114,3 +114,15 @@ Allowed browser origins: `CORS_ORIGINS` in `backend/.env` (see `.env.example`).
 - [Methodology](docs/methodology.md)  
 - [Reproducibility & baseline](docs/reproducibility.md)  
 - [API contract](docs/api.md)  
+- [Phase C scenarios & gaps](docs/phase_c.md)  
+
+### Phase C (optional scientific add-on)
+
+After the live pipeline + paper freeze:
+
+```bash
+cd sql
+psql -d fifteen_min_city -f run_phase_c.sql
+```
+
+This builds travel times, 10/15-minute scenarios, and intervention gap candidates without modifying the paper baseline.

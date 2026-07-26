@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import text
@@ -14,6 +14,9 @@ from app.schemas import (
     DataQualityResponse,
     HistogramBucket,
     HistogramResponse,
+    NeighborhoodSummaryItem,
+    NeighborhoodSummaryResponse,
+    ScenarioCompareResponse,
     SummaryStatistics,
 )
 
@@ -28,6 +31,16 @@ CATEGORY_COLUMNS = {
     "shopping": "has_shopping",
     "recreation": "has_recreation",
 }
+
+# source_key -> (relation, run_code_or_None, include_travel_times)
+SOURCE_RELATIONS = {
+    "current": ("v_block_accessibility_15min", None, False),
+    "paper_baseline": ("v_paper_baseline_accessibility", None, False),
+    "scenario_10min": ("block_accessibility_scenarios", "scenario_10min", True),
+    "scenario_15min": ("block_accessibility_scenarios", "scenario_15min", True),
+}
+
+SOURCE_PATTERN = "^(current|paper_baseline|scenario_10min|scenario_15min)$"
 
 
 def safe_int(value: Any, default: int = 0) -> int:
@@ -71,9 +84,35 @@ def _serialize_run(row: Any, *, api_view: str | None = None) -> AnalysisRun:
     )
 
 
+def _relation_exists(db: Session, table_name: str) -> bool:
+    exists = db.execute(
+        text("SELECT to_regclass(:name) IS NOT NULL"),
+        {"name": f"public.{table_name}"},
+    ).scalar()
+    return bool(exists)
+
+
+def _resolve_source(source: str) -> Tuple[str, Optional[str], bool]:
+    if source not in SOURCE_RELATIONS:
+        raise HTTPException(status_code=400, detail=f"Unknown source: {source}")
+    return SOURCE_RELATIONS[source]
+
+
+def _from_clause(relation: str, run_code: Optional[str]) -> Tuple[str, Dict[str, Any]]:
+    if run_code:
+        return f"{relation} WHERE run_code = :run_code", {"run_code": run_code}
+    return relation, {}
+
+
 @router.get("/summary", response_model=AccessibilitySummaryResponse)
-def get_accessibility_summary(db: Session = Depends(get_db)) -> AccessibilitySummaryResponse:
-    query = text("""
+def get_accessibility_summary(
+    db: Session = Depends(get_db),
+    source: str = Query("current", pattern=SOURCE_PATTERN),
+) -> AccessibilitySummaryResponse:
+    relation, run_code, _ = _resolve_source(source)
+    from_sql, params = _from_clause(relation, run_code)
+
+    query = text(f"""
         SELECT
             COUNT(*) AS total_blocks,
             ROUND(AVG(COALESCE(accessibility_score, 0))::numeric, 2) AS avg_score,
@@ -83,32 +122,35 @@ def get_accessibility_summary(db: Session = Depends(get_db)) -> AccessibilitySum
             SUM(CASE WHEN COALESCE(has_health, 0) = 1 THEN 1 ELSE 0 END) AS health_covered,
             SUM(CASE WHEN COALESCE(has_shopping, 0) = 1 THEN 1 ELSE 0 END) AS shopping_covered,
             SUM(CASE WHEN COALESCE(has_recreation, 0) = 1 THEN 1 ELSE 0 END) AS recreation_covered
-        FROM v_block_accessibility_15min;
+        FROM {from_sql};
     """)
 
     try:
-        result = db.execute(query).mappings().first()
+        result = db.execute(query, params).mappings().first()
+        empty_metrics = {
+            "education": CategoryCoverage(count=0, percentage=0.0),
+            "health": CategoryCoverage(count=0, percentage=0.0),
+            "shopping": CategoryCoverage(count=0, percentage=0.0),
+            "recreation": CategoryCoverage(count=0, percentage=0.0),
+        }
         if not result:
             return AccessibilitySummaryResponse(
                 total_blocks=0,
                 statistics=SummaryStatistics(avg_score=0.0, min_score=0, max_score=0),
-                coverage_metrics={
-                    "education": CategoryCoverage(count=0, percentage=0.0),
-                    "health": CategoryCoverage(count=0, percentage=0.0),
-                    "shopping": CategoryCoverage(count=0, percentage=0.0),
-                    "recreation": CategoryCoverage(count=0, percentage=0.0),
-                },
+                coverage_metrics=empty_metrics,
+                source=source,
                 message="No data available.",
             )
 
         total_blocks = safe_int(result.get("total_blocks"), 0)
+
+        def pct(count: int) -> float:
+            return round((count / total_blocks) * 100, 2) if total_blocks else 0.0
+
         education_count = safe_int(result.get("education_covered"))
         health_count = safe_int(result.get("health_covered"))
         shopping_count = safe_int(result.get("shopping_covered"))
         recreation_count = safe_int(result.get("recreation_covered"))
-
-        def pct(count: int) -> float:
-            return round((count / total_blocks) * 100, 2) if total_blocks else 0.0
 
         return AccessibilitySummaryResponse(
             total_blocks=total_blocks,
@@ -123,33 +165,43 @@ def get_accessibility_summary(db: Session = Depends(get_db)) -> AccessibilitySum
                 "shopping": CategoryCoverage(count=shopping_count, percentage=pct(shopping_count)),
                 "recreation": CategoryCoverage(count=recreation_count, percentage=pct(recreation_count)),
             },
+            source=source,
             message="Table is empty." if total_blocks == 0 else None,
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Summary query failed: {str(e)}")
 
 
 @router.get("/histogram", response_model=HistogramResponse)
-def get_accessibility_histogram(db: Session = Depends(get_db)) -> HistogramResponse:
-    query = text("""
+def get_accessibility_histogram(
+    db: Session = Depends(get_db),
+    source: str = Query("current", pattern=SOURCE_PATTERN),
+) -> HistogramResponse:
+    relation, run_code, _ = _resolve_source(source)
+    from_sql, params = _from_clause(relation, run_code)
+
+    query = text(f"""
         SELECT
             COALESCE(accessibility_score, 0) AS score,
             COUNT(*) AS block_count
-        FROM v_block_accessibility_15min
+        FROM {from_sql}
         GROUP BY COALESCE(accessibility_score, 0)
         ORDER BY score;
     """)
 
     try:
-        results = db.execute(query).mappings().all()
+        results = db.execute(query, params).mappings().all()
         return HistogramResponse(
+            source=source,
             histogram=[
                 HistogramBucket(
                     score=safe_int(row.get("score")),
                     count=safe_int(row.get("block_count")),
                 )
                 for row in results
-            ]
+            ],
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Histogram query failed: {str(e)}")
@@ -163,7 +215,7 @@ def list_analysis_runs(db: Session = Depends(get_db)) -> AnalysisRunsResponse:
             score_min, score_max, categories, pipeline_version, is_paper_baseline,
             result_table, block_count, service_count, avg_score, notes, created_at
         FROM analysis_runs
-        ORDER BY is_paper_baseline DESC, created_at DESC;
+        ORDER BY is_paper_baseline DESC, time_threshold_sec NULLS LAST, created_at DESC;
     """)
     try:
         rows = db.execute(query).mappings().all()
@@ -171,7 +223,7 @@ def list_analysis_runs(db: Session = Depends(get_db)) -> AnalysisRunsResponse:
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Analysis runs query failed (run sql/08–09 first): {str(e)}",
+            detail=f"Analysis runs query failed (run sql/08–12 first): {str(e)}",
         )
 
 
@@ -204,9 +256,146 @@ def get_paper_baseline_run(db: Session = Depends(get_db)) -> AnalysisRun:
         )
 
 
+@router.get("/compare", response_model=ScenarioCompareResponse)
+def compare_scenarios(
+    db: Session = Depends(get_db),
+    base: str = Query("scenario_10min", pattern="^(scenario_10min|scenario_15min)$"),
+    other: str = Query("scenario_15min", pattern="^(scenario_10min|scenario_15min)$"),
+) -> ScenarioCompareResponse:
+    if base == other:
+        raise HTTPException(status_code=400, detail="base and other must differ")
+
+    if not _relation_exists(db, "block_accessibility_scenarios"):
+        raise HTTPException(
+            status_code=404,
+            detail="Scenarios missing. Run sql/run_phase_c.sql first.",
+        )
+
+    query = text("""
+        SELECT
+            COUNT(*) AS total_blocks,
+            SUM(CASE WHEN o.accessibility_score > b.accessibility_score THEN 1 ELSE 0 END) AS improved,
+            SUM(CASE WHEN o.accessibility_score < b.accessibility_score THEN 1 ELSE 0 END) AS worsened,
+            SUM(CASE WHEN o.accessibility_score = b.accessibility_score THEN 1 ELSE 0 END) AS unchanged,
+            ROUND(AVG(b.accessibility_score)::numeric, 2) AS avg_base,
+            ROUND(AVG(o.accessibility_score)::numeric, 2) AS avg_other,
+            ROUND(AVG(o.accessibility_score - b.accessibility_score)::numeric, 4) AS avg_delta
+        FROM block_accessibility_scenarios b
+        JOIN block_accessibility_scenarios o
+          ON b.block_gid = o.block_gid
+        WHERE b.run_code = :base
+          AND o.run_code = :other;
+    """)
+    try:
+        row = db.execute(query, {"base": base, "other": other}).mappings().first()
+        if not row or safe_int(row.get("total_blocks")) == 0:
+            raise HTTPException(status_code=404, detail="No overlapping scenario blocks found")
+        return ScenarioCompareResponse(
+            base_run=base,
+            other_run=other,
+            total_blocks=safe_int(row.get("total_blocks")),
+            improved_blocks=safe_int(row.get("improved")),
+            worsened_blocks=safe_int(row.get("worsened")),
+            unchanged_blocks=safe_int(row.get("unchanged")),
+            avg_score_base=safe_float(row.get("avg_base")),
+            avg_score_other=safe_float(row.get("avg_other")),
+            avg_score_delta=safe_float(row.get("avg_delta")),
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Compare query failed: {str(e)}")
+
+
+@router.get("/gaps/geojson")
+def get_intervention_gaps_geojson(
+    db: Session = Depends(get_db),
+    limit: int = Query(400, ge=1, le=5000),
+    min_priority: int = Query(0, ge=0, le=20),
+) -> Dict[str, Any]:
+    if not _relation_exists(db, "intervention_gaps"):
+        return {"type": "FeatureCollection", "features": []}
+
+    query = text("""
+        SELECT json_build_object(
+            'type', 'FeatureCollection',
+            'features', COALESCE(json_agg(feature), '[]'::json)
+        ) AS geojson
+        FROM (
+            SELECT json_build_object(
+                'type', 'Feature',
+                'geometry', ST_AsGeoJSON(ST_Transform(candidate_geom, 4326))::json,
+                'properties', json_build_object(
+                    'block_gid', block_gid,
+                    'score', accessibility_score,
+                    'missing_count', missing_count,
+                    'priority_score', priority_score,
+                    'has_education', has_education,
+                    'has_health', has_health,
+                    'has_shopping', has_shopping,
+                    'has_recreation', has_recreation
+                )
+            ) AS feature
+            FROM intervention_gaps
+            WHERE candidate_geom IS NOT NULL
+              AND priority_score >= :min_priority
+            ORDER BY priority_score DESC, missing_count DESC, block_gid
+            LIMIT :limit
+        ) AS features;
+    """)
+    try:
+        result = db.execute(
+            query, {"limit": limit, "min_priority": min_priority}
+        ).scalar()
+        return result or {"type": "FeatureCollection", "features": []}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gaps query failed: {str(e)}")
+
+
+@router.get("/neighborhoods/summary", response_model=NeighborhoodSummaryResponse)
+def get_neighborhood_summary(db: Session = Depends(get_db)) -> NeighborhoodSummaryResponse:
+    if not _relation_exists(db, "neighborhood_accessibility_summary"):
+        return NeighborhoodSummaryResponse(
+            available=False,
+            neighborhoods=[],
+            message="Load ahvaz_neighborhoods and run sql/14_neighborhood_summary.sql",
+        )
+
+    query = text("""
+        SELECT
+            neighborhood_name,
+            block_count,
+            avg_score,
+            pct_education,
+            pct_health,
+            pct_shopping,
+            pct_recreation
+        FROM neighborhood_accessibility_summary
+        ORDER BY avg_score ASC NULLS LAST, neighborhood_name;
+    """)
+    try:
+        rows = db.execute(query).mappings().all()
+        return NeighborhoodSummaryResponse(
+            available=True,
+            neighborhoods=[
+                NeighborhoodSummaryItem(
+                    neighborhood_name=row.get("neighborhood_name") or "—",
+                    block_count=safe_int(row.get("block_count")),
+                    avg_score=safe_float(row.get("avg_score")),
+                    pct_education=safe_float(row.get("pct_education")),
+                    pct_health=safe_float(row.get("pct_health")),
+                    pct_shopping=safe_float(row.get("pct_shopping")),
+                    pct_recreation=safe_float(row.get("pct_recreation")),
+                )
+                for row in rows
+            ],
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Neighborhood summary failed: {str(e)}")
+
+
 @router.get("/data-quality", response_model=DataQualityResponse)
 def get_data_quality(db: Session = Depends(get_db)) -> DataQualityResponse:
-    """Read-only quality checks for network snap coverage and classification."""
     checks: List[DataQualityCheck] = []
 
     try:
@@ -222,10 +411,7 @@ def get_data_quality(db: Session = Depends(get_db)) -> DataQualityResponse:
         total = safe_int(blocks.get("total")) if blocks else 0
         unsapped = safe_int(blocks.get("unsapped")) if blocks else 0
         checks.append(DataQualityCheck(
-            check_id="blocks_total",
-            label="Total population blocks",
-            value=total,
-            severity="info",
+            check_id="blocks_total", label="Total population blocks", value=total, severity="info"
         ))
         checks.append(DataQualityCheck(
             check_id="blocks_unsapped",
@@ -254,14 +440,13 @@ def get_data_quality(db: Session = Depends(get_db)) -> DataQualityResponse:
                 COUNT(*) FILTER (WHERE nearest_vertex IS NULL) AS unsapped
             FROM urban_services;
         """)).mappings().first()
-        svc_total = safe_int(services.get("total")) if services else 0
-        svc_unsapped = safe_int(services.get("unsapped")) if services else 0
         checks.append(DataQualityCheck(
             check_id="services_total",
             label="Total urban services",
-            value=svc_total,
+            value=safe_int(services.get("total")) if services else 0,
             severity="info",
         ))
+        svc_unsapped = safe_int(services.get("unsapped")) if services else 0
         checks.append(DataQualityCheck(
             check_id="services_unsapped",
             label="Services without nearest_vertex",
@@ -291,12 +476,11 @@ def get_data_quality(db: Session = Depends(get_db)) -> DataQualityResponse:
                 COUNT(*) FILTER (WHERE source IS NULL OR target IS NULL) AS incomplete
             FROM roads;
         """)).mappings().first()
-        road_total = safe_int(roads.get("total")) if roads else 0
         road_incomplete = safe_int(roads.get("incomplete")) if roads else 0
         checks.append(DataQualityCheck(
             check_id="roads_total",
             label="Road edges",
-            value=road_total,
+            value=safe_int(roads.get("total")) if roads else 0,
             severity="info",
         ))
         checks.append(DataQualityCheck(
@@ -312,20 +496,33 @@ def get_data_quality(db: Session = Depends(get_db)) -> DataQualityResponse:
                 COUNT(*) FILTER (WHERE COALESCE(accessibility_score, 0) = 0) AS score_zero
             FROM v_block_accessibility_15min;
         """)).mappings().first()
-        acc_total = safe_int(scores.get("total")) if scores else 0
-        score_zero = safe_int(scores.get("score_zero")) if scores else 0
         checks.append(DataQualityCheck(
             check_id="accessibility_blocks",
             label="Blocks in accessibility view",
-            value=acc_total,
+            value=safe_int(scores.get("total")) if scores else 0,
             severity="info",
         ))
         checks.append(DataQualityCheck(
             check_id="accessibility_score_zero",
             label="Blocks with score 0",
-            value=score_zero,
+            value=safe_int(scores.get("score_zero")) if scores else 0,
             severity="info",
         ))
+
+        if _relation_exists(db, "block_accessibility_scenarios"):
+            scenario_rows = db.execute(text("""
+                SELECT run_code, ROUND(AVG(accessibility_score)::numeric, 2) AS avg_score
+                FROM block_accessibility_scenarios
+                GROUP BY run_code
+                ORDER BY run_code;
+            """)).mappings().all()
+            for row in scenario_rows:
+                checks.append(DataQualityCheck(
+                    check_id=f"scenario_avg_{row.get('run_code')}",
+                    label=f"Avg score ({row.get('run_code')})",
+                    value=safe_float(row.get("avg_score")),
+                    severity="info",
+                ))
 
         return DataQualityResponse(checks=checks)
     except Exception as e:
@@ -341,17 +538,19 @@ def get_accessibility_geojson(
     missing_category: Optional[str] = Query(
         None,
         pattern="^(education|health|shopping|recreation)$",
-        description="Keep blocks that lack this category within 15 minutes",
+        description="Keep blocks that lack this category within the selected threshold",
     ),
     limit: int = Query(3000, ge=1, le=20000),
-    source: str = Query(
-        "current",
-        pattern="^(current|paper_baseline)$",
-        description="current = live view; paper_baseline = frozen paper snapshot",
-    ),
+    source: str = Query("current", pattern=SOURCE_PATTERN),
 ) -> Dict[str, Any]:
+    relation, run_code, include_times = _resolve_source(source)
+
     conditions = ["geom IS NOT NULL"]
     params: Dict[str, Any] = {"limit": limit}
+
+    if run_code:
+        conditions.append("run_code = :run_code")
+        params["run_code"] = run_code
 
     if only_unserved:
         conditions.append("COALESCE(accessibility_score, 0) = 0")
@@ -369,11 +568,15 @@ def get_accessibility_geojson(
         conditions.append(f"COALESCE({column}, 0) = 0")
 
     where_clause = " AND ".join(conditions)
-    source_view = (
-        "v_paper_baseline_accessibility"
-        if source == "paper_baseline"
-        else "v_block_accessibility_15min"
-    )
+
+    time_props = ""
+    if include_times:
+        time_props = """
+                    'time_education_sec', time_education_sec,
+                    'time_health_sec', time_health_sec,
+                    'time_shopping_sec', time_shopping_sec,
+                    'time_recreation_sec', time_recreation_sec,
+        """
 
     query = text(f"""
         SELECT json_build_object(
@@ -392,15 +595,18 @@ def get_accessibility_geojson(
                     'has_education', COALESCE(has_education, 0),
                     'has_health', COALESCE(has_health, 0),
                     'has_shopping', COALESCE(has_shopping, 0),
-                    'has_recreation', COALESCE(has_recreation, 0)
+                    'has_recreation', COALESCE(has_recreation, 0),
+                    {time_props}
+                    'source', :source_label
                 )
             ) AS feature
-            FROM {source_view}
+            FROM {relation}
             WHERE {where_clause}
             ORDER BY block_gid
             LIMIT :limit
         ) AS features;
     """)
+    params["source_label"] = source
 
     try:
         result = db.execute(query, params).scalar()
@@ -421,7 +627,7 @@ def get_accessibility_map(
         None, pattern="^(education|health|shopping|recreation)$"
     ),
     limit: int = Query(3000, ge=1, le=20000),
-    source: str = Query("current", pattern="^(current|paper_baseline)$"),
+    source: str = Query("current", pattern=SOURCE_PATTERN),
 ) -> Dict[str, Any]:
     """Deprecated alias of /geojson. Prefer /accessibility/geojson."""
     return get_accessibility_geojson(
@@ -433,14 +639,6 @@ def get_accessibility_map(
         limit=limit,
         source=source,
     )
-
-
-def _relation_exists(db: Session, table_name: str) -> bool:
-    exists = db.execute(
-        text("SELECT to_regclass(:name) IS NOT NULL"),
-        {"name": f"public.{table_name}"},
-    ).scalar()
-    return bool(exists)
 
 
 @router.get("/boundary")

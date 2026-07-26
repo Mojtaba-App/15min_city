@@ -48,13 +48,17 @@ The API **must not** recompute routing; it only reads precomputed views/tables.
 | `only_unserved` | `false` | score = 0 |
 | `missing_category` | — | `education` \| `health` \| `shopping` \| `recreation` |
 | `limit` | `3000` | 1–20000 |
-| `source` | `current` | `current` \| `paper_baseline` |
+| `source` | `current` | `current` \| `paper_baseline` \| `scenario_10min` \| `scenario_15min` |
 
-Example:
+### Phase C endpoints
 
-```
-GET /accessibility/geojson?source=paper_baseline&missing_category=health&limit=500
-```
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/accessibility/compare` | Compare two scenarios (`base`, `other`) |
+| GET | `/accessibility/gaps/geojson` | Priority intervention candidate points |
+| GET | `/accessibility/neighborhoods/summary` | Neighborhood aggregates (if built) |
+
+See [phase_c.md](phase_c.md).
 
 ### Frontend config
 

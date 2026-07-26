@@ -8,8 +8,8 @@ from app.schemas import HealthResponse
 
 app = FastAPI(
     title="15-Minute City Accessibility API",
-    description="API for spatial accessibility analysis and GeoJSON delivery",
-    version="1.1.0",
+    description="API for spatial accessibility analysis, scenarios, and GeoJSON delivery",
+    version="1.2.0",
 )
 
 app.add_middleware(
@@ -45,6 +45,9 @@ def root():
             "map": "/accessibility/map (deprecated)",
             "runs": "/accessibility/runs",
             "baseline": "/accessibility/runs/baseline",
+            "compare": "/accessibility/compare",
+            "gaps": "/accessibility/gaps/geojson",
+            "neighborhood_summary": "/accessibility/neighborhoods/summary",
             "data_quality": "/accessibility/data-quality",
             "boundary": "/accessibility/boundary",
             "neighborhoods": "/accessibility/neighborhoods",
@@ -52,6 +55,9 @@ def root():
         "data_contract": {
             "current_view": "v_block_accessibility_15min",
             "paper_baseline_view": "v_paper_baseline_accessibility",
+            "scenarios_table": "block_accessibility_scenarios",
+            "travel_times_table": "block_travel_times",
+            "gaps_table": "intervention_gaps",
             "runs_table": "analysis_runs",
         },
     }

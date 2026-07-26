@@ -115,6 +115,17 @@
       color: #374151;
     }
 
+    label input[type="checkbox"] {
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+
+    .compare-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
     select {
       width: 100%;
       border: 1px solid #cfd8e3;
@@ -337,10 +348,12 @@
       <h2 class="card-title">تنظیمات نمایش</h2>
 
       <div class="filter-group">
-        <label for="source-select">منبع داده</label>
+        <label for="source-select">منبع / سناریو</label>
         <select id="source-select">
-          <option value="current" selected>نتیجه جاری (live)</option>
-          <option value="paper_baseline">نسخه پایه مقاله (baseline)</option>
+          <option value="current">نتیجه جاری (live)</option>
+          <option value="paper_baseline">نسخه پایه مقاله</option>
+          <option value="scenario_10min">سناریو ۱۰ دقیقه</option>
+          <option value="scenario_15min" selected>سناریو ۱۵ دقیقه</option>
         </select>
       </div>
 
@@ -378,8 +391,22 @@
         </select>
       </div>
 
+      <div class="filter-group">
+        <label>
+          <input type="checkbox" id="show-gaps" />
+          نمایش نقاط اولویت مداخله (gaps)
+        </label>
+      </div>
+
       <button id="btn-load">بارگذاری داده‌ها</button>
       <div class="status-line" id="load-status"></div>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">مقایسه سناریو ۱۰ ↔ ۱۵ دقیقه</h2>
+      <div id="compare-panel">
+        <div class="status-line">در حال بارگذاری...</div>
+      </div>
     </div>
 
     <div class="card">
@@ -460,6 +487,7 @@
     let geojsonLayer = null;
     let boundaryLayer = null;
     let neighborhoodsLayer = null;
+    let gapsLayer = null;
     let layerControl = null;
 
     function getColor(score) {
@@ -505,9 +533,24 @@
       return Number(value) === 1 ? "دارد" : "ندارد";
     }
 
+    function formatTravelTime(sec) {
+      if (sec == null || Number.isNaN(Number(sec))) return "خارج از آستانه";
+      const minutes = Math.round(Number(sec) / 60);
+      return `${toFaDigits(minutes)} دقیقه`;
+    }
+
     function onEachFeature(feature, layer) {
       const props = feature.properties;
       const scoreColor = getColor(props.score);
+      const timeRows = (props.time_education_sec != null || props.source?.startsWith("scenario"))
+        ? `
+          <div class="popup-row"><strong>زمان تا آموزش:</strong> ${formatTravelTime(props.time_education_sec)}</div>
+          <div class="popup-row"><strong>زمان تا سلامت:</strong> ${formatTravelTime(props.time_health_sec)}</div>
+          <div class="popup-row"><strong>زمان تا خرید:</strong> ${formatTravelTime(props.time_shopping_sec)}</div>
+          <div class="popup-row"><strong>زمان تا تفریح:</strong> ${formatTravelTime(props.time_recreation_sec)}</div>
+        `
+        : "";
+
       layer.bindPopup(`
         <div style="direction: rtl; text-align: right; font-family: Vazirmatn, Tahoma, sans-serif;">
           <div class="popup-title">اطلاعات بلوک شهری</div>
@@ -519,6 +562,7 @@
               ${props.score ?? 0} از ۴ — ${getScoreLabel(props.score)}
             </span>
           </div>
+          ${timeRows}
           <ul class="service-list">
             <li><strong>آموزش:</strong> ${formatServiceStatus(props.has_education)}</li>
             <li><strong>سلامت:</strong> ${formatServiceStatus(props.has_health)}</li>
@@ -540,6 +584,7 @@
 
       const overlayMaps = {};
       if (geojsonLayer) overlayMaps["بلوک‌های شهری"] = geojsonLayer;
+      if (gapsLayer) overlayMaps["اولویت مداخله"] = gapsLayer;
       if (boundaryLayer) overlayMaps["مرز شهر"] = boundaryLayer;
       if (neighborhoodsLayer) overlayMaps["محلات"] = neighborhoodsLayer;
 
@@ -599,8 +644,9 @@
     }
 
     async function fetchSummary() {
+      const source = document.getElementById("source-select").value;
       try {
-        const response = await fetch(`${API_BASE}/summary`);
+        const response = await fetch(`${API_BASE}/summary?source=${encodeURIComponent(source)}`);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
 
@@ -618,8 +664,9 @@
     }
 
     async function fetchHistogram() {
+      const source = document.getElementById("source-select").value;
       try {
-        const response = await fetch(`${API_BASE}/histogram`);
+        const response = await fetch(`${API_BASE}/histogram?source=${encodeURIComponent(source)}`);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         renderHistogram(data.histogram);
@@ -628,6 +675,91 @@
         document.getElementById("histogram-panel").innerHTML =
           '<div class="status-line error">خطا در دریافت هیستوگرام</div>';
       }
+    }
+
+    async function fetchCompare() {
+      const panel = document.getElementById("compare-panel");
+      try {
+        const response = await fetch(
+          `${API_BASE}/compare?base=scenario_10min&other=scenario_15min`
+        );
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        panel.innerHTML = `
+          <div class="compare-grid">
+            <div class="stat-box">
+              <div class="stat-label">میانگین ۱۰ دقیقه</div>
+              <div class="stat-value">${toFaDigits(data.avg_score_base)}</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">میانگین ۱۵ دقیقه</div>
+              <div class="stat-value">${toFaDigits(data.avg_score_other)}</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">بهبود یافته</div>
+              <div class="stat-value">${toFaDigits(data.improved_blocks)}</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">بدون تغییر</div>
+              <div class="stat-value">${toFaDigits(data.unchanged_blocks)}</div>
+            </div>
+          </div>
+          <div class="mini-note" style="margin-top:10px">
+            با افزایش آستانه از ۱۰ به ۱۵ دقیقه، امتیاز
+            ${toFaDigits(data.improved_blocks)} بلوک بهتر می‌شود
+            (Δ میانگین: ${toFaDigits(data.avg_score_delta)}).
+          </div>
+        `;
+      } catch (error) {
+        console.error("Compare load error:", error);
+        panel.innerHTML = '<div class="status-line error">سناریوها در دسترس نیستند (sql/run_phase_c.sql)</div>';
+      }
+    }
+
+    async function loadGapsLayer(forceOff) {
+      if (gapsLayer) {
+        map.removeLayer(gapsLayer);
+        gapsLayer = null;
+      }
+
+      const enabled = !forceOff && document.getElementById("show-gaps").checked;
+      if (!enabled) {
+        setupLayerControl();
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/gaps/geojson?limit=400&min_priority=6`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        gapsLayer = L.geoJSON(data, {
+          pointToLayer(feature, latlng) {
+            const priority = Number(feature.properties.priority_score) || 0;
+            return L.circleMarker(latlng, {
+              radius: 4 + Math.min(priority, 10) * 0.4,
+              color: "#7f1d1d",
+              weight: 1,
+              fillColor: "#dc2626",
+              fillOpacity: 0.75,
+            });
+          },
+          onEachFeature(feature, layer) {
+            const p = feature.properties;
+            layer.bindPopup(`
+              <div style="direction:rtl;text-align:right;font-family:Vazirmatn,Tahoma,sans-serif;">
+                <div class="popup-title">اولویت مداخله</div>
+                <div class="popup-row">بلوک: ${p.block_gid}</div>
+                <div class="popup-row">امتیاز فعلی: ${p.score}</div>
+                <div class="popup-row">تعداد کمبود: ${p.missing_count}</div>
+                <div class="popup-row">اولویت: ${p.priority_score}</div>
+              </div>
+            `);
+          },
+        }).addTo(map);
+      } catch (error) {
+        console.warn("Gaps layer skipped:", error);
+      }
+      setupLayerControl();
     }
 
     async function loadContextLayers() {
@@ -755,12 +887,23 @@
     };
     legend.addTo(map);
 
-    document.getElementById("btn-load").addEventListener("click", loadGeoJson);
+    document.getElementById("btn-load").addEventListener("click", () => {
+      fetchSummary();
+      fetchHistogram();
+      loadGeoJson();
+      loadGapsLayer();
+    });
+    document.getElementById("show-gaps").addEventListener("change", () => loadGapsLayer());
+    document.getElementById("source-select").addEventListener("change", () => {
+      fetchSummary();
+      fetchHistogram();
+    });
 
     window.onload = () => {
       setupLayerControl();
       fetchSummary();
       fetchHistogram();
+      fetchCompare();
       loadContextLayers();
       loadGeoJson();
     };
