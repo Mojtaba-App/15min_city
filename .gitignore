@@ -4,3 +4,4 @@ frontend/.env
 outputs/*.dump
 outputs/*.geojson
 !outputs/.gitkeep
+.env.example
