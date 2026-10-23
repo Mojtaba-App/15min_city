@@ -1,0 +1,16 @@
+#!/bin/sh
+# Strip Cursor Agent co-author trailers so GitHub does not list cursoragent.
+msgfile="$1"
+[ -z "$msgfile" ] || [ ! -f "$msgfile" ] && exit 0
+tmp=$(mktemp 2>/dev/null || echo "$msgfile.tmp")
+# portable filter without GNU sed -i differences
+while IFS= read -r line || [ -n "$line" ]; do
+  case "$line" in
+    Co-authored-by:*[Cc]ursor*|Co-authored-by:*cursoragent@cursor.com*)
+      ;;
+    *)
+      printf '%s\n' "$line"
+      ;;
+  esac
+done < "$msgfile" > "$tmp" && mv "$tmp" "$msgfile"
+exit 0

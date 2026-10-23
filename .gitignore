@@ -1,0 +1,30 @@
+# Environment and secrets
+.env
+backend/.env
+frontend/.env
+.env.*
+!.env.example
+
+# Virtual environments
+.venv/
+**/.venv/
+venv/
+
+# Python
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Generated outputs
+outputs/*.dump
+outputs/*.geojson
+!outputs/.gitkeep
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

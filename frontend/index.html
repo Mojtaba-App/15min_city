@@ -1,0 +1,1703 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>داشبورد تحلیل شهر ۱۵ دقیقه‌ای اهواز</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --panel: #ffffff;
+      --panel-border: #dbe3ee;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --primary: #1565c0;
+      --primary-hover: #0d47a1;
+      --shadow: 0 10px 30px rgba(15, 23, 42, 0.10);
+      --font: "Vazirmatn", Tahoma, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      height: 100%;
+      font-family: var(--font);
+      font-feature-settings: "ss01" 0;
+      -webkit-font-smoothing: antialiased;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    body {
+      display: flex;
+      overflow: hidden;
+    }
+
+    #sidebar {
+      width: 390px;
+      min-width: 390px;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+      border-left: 1px solid var(--panel-border);
+      box-shadow: var(--shadow);
+      padding: 18px 16px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      z-index: 1000;
+      overflow-y: auto;
+    }
+
+    main {
+      flex: 1;
+      min-width: 0;
+      height: 100vh;
+      position: relative;
+    }
+
+    #map { height: 100%; background: #eaf2fb; }
+    #map[hidden], #report[hidden] { display: none !important; }
+
+    #report {
+      height: 100%;
+      overflow: auto;
+      padding: 28px 32px 64px;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #0f172a;
+    }
+
+    .brand p, .mini-note {
+      margin: 6px 0 0;
+      font-size: 0.84rem;
+      color: var(--muted);
+      line-height: 1.85;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      padding: 14px;
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
+    }
+
+    .card-title {
+      margin: 0 0 10px;
+      font-size: 0.98rem;
+      font-weight: 800;
+    }
+
+    .nav {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    button, select {
+      font-family: inherit;
+    }
+
+    button {
+      border: none;
+      border-radius: 12px;
+      padding: 11px 12px;
+      font-size: 0.92rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--primary) 0%, #1976d2 100%);
+      color: #fff;
+      cursor: pointer;
+    }
+
+    .nav button {
+      background: #e8eef6;
+      color: #0f172a;
+      box-shadow: none;
+    }
+
+    .nav button.active {
+      background: linear-gradient(135deg, var(--primary) 0%, #1976d2 100%);
+      color: #fff;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 0.88rem;
+      font-weight: 700;
+    }
+
+    select {
+      width: 100%;
+      border: 1px solid #cfd8e3;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 0.92rem;
+      background: #fff;
+      margin-bottom: 12px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .stat-box {
+      border-radius: 14px;
+      padding: 10px 12px;
+      background: #f8fbff;
+      border: 1px solid #d9e7f6;
+    }
+
+    .stat-label { font-size: 0.75rem; color: var(--muted); font-weight: 600; }
+    .stat-value { margin-top: 4px; font-size: 1rem; font-weight: 800; color: #0f172a; }
+    #load-status {
+      font-size: 0.8rem;
+      color: #b91c1c;
+      line-height: 1.7;
+      margin-top: 8px;
+    }
+
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 14px;
+      margin: 12px 0 16px;
+    }
+
+    .chart-card {
+      background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+      border: 1px solid #dbe3ee;
+      border-radius: 14px;
+      padding: 14px 14px 10px;
+      min-height: 280px;
+    }
+
+    .chart-card h4 {
+      margin: 0 0 8px;
+      font-size: 0.92rem;
+      font-weight: 800;
+      color: #0f172a;
+    }
+
+    .chart-card p {
+      margin: 0 0 10px;
+      font-size: 0.78rem;
+      color: #64748b;
+      line-height: 1.7;
+    }
+
+    .chart-wrap {
+      position: relative;
+      height: 240px;
+    }
+
+    @media (max-width: 980px) {
+      .charts-grid { grid-template-columns: 1fr; }
+      .chart-wrap { height: 220px; }
+    }
+
+    .leaflet-container,
+    .leaflet-popup,
+    .leaflet-control {
+      font-family: var(--font) !important;
+    }
+
+    .leaflet-popup-content-wrapper {
+      border-radius: 18px;
+      box-shadow: 0 16px 36px rgba(15, 23, 42, 0.18);
+      border: 1px solid #e2e8f0;
+      overflow: hidden;
+    }
+
+    .leaflet-popup-content {
+      margin: 0;
+      min-width: 240px;
+      max-width: 300px;
+      direction: rtl;
+      text-align: right;
+      font-family: var(--font) !important;
+    }
+
+    .leaflet-popup-tip {
+      box-shadow: none;
+    }
+
+    .map-popup {
+      padding: 14px 16px 15px;
+      font-family: var(--font);
+      color: #1e293b;
+    }
+
+    .map-popup-title {
+      margin: 0 0 8px;
+      font-size: 1.02rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #0f172a;
+      line-height: 1.55;
+    }
+
+    .map-popup-sub {
+      margin: 0 0 10px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #64748b;
+      line-height: 1.6;
+    }
+
+    .map-popup-grid {
+      display: grid;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .map-popup-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+      font-size: 0.84rem;
+      line-height: 1.65;
+    }
+
+    .map-popup-row .k {
+      color: #64748b;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .map-popup-row .v {
+      color: #0f172a;
+      font-weight: 700;
+      text-align: left;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .popup-score {
+      display: inline-flex;
+      align-items: center;
+      margin: 2px 0 10px;
+      padding: 5px 11px;
+      border-radius: 999px;
+      color: #fff;
+      font-weight: 800;
+      font-size: 0.82rem;
+      letter-spacing: -0.01em;
+      box-shadow: 0 6px 14px rgba(15, 23, 42, 0.16);
+    }
+
+    .map-popup-services {
+      margin: 0;
+      padding: 10px 16px 2px 0;
+      border-top: 1px solid #e8eef6;
+      list-style: none;
+    }
+
+    .map-popup-services li {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin: 0;
+      padding: 5px 0;
+      font-size: 0.82rem;
+      line-height: 1.55;
+      border-bottom: 1px dashed #edf2f7;
+    }
+
+    .map-popup-services li:last-child { border-bottom: none; }
+    .map-popup-services .svc-name { color: #475569; font-weight: 600; }
+    .map-popup-services .svc-val { color: #0f172a; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+    .legend {
+      background: rgba(255, 255, 255, 0.97);
+      padding: 12px 14px;
+      border-radius: 16px;
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+      border: 1px solid #e5e7eb;
+      font-family: var(--font) !important;
+      line-height: 1.65;
+      min-width: 168px;
+      color: #334155;
+    }
+
+    .legend-title {
+      font-weight: 800;
+      margin-bottom: 8px;
+      font-size: 0.86rem;
+      color: #0f172a;
+      letter-spacing: -0.01em;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin-bottom: 5px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #475569;
+    }
+
+    .legend-item:last-child { margin-bottom: 0; }
+
+    .legend-color {
+      width: 15px;
+      height: 15px;
+      border-radius: 5px;
+      border: 1px solid rgba(15, 23, 42, 0.14);
+      flex-shrink: 0;
+    }
+
+    .leaflet-control-layers {
+      border-radius: 14px !important;
+      border: 1px solid #e5e7eb !important;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12) !important;
+      font-family: var(--font) !important;
+      font-size: 0.82rem !important;
+      font-weight: 600;
+      line-height: 1.7;
+    }
+
+    .leaflet-control-layers-expanded {
+      padding: 10px 12px !important;
+      min-width: 170px;
+    }
+
+    .leaflet-control-layers label {
+      font-family: var(--font) !important;
+      font-weight: 600;
+      color: #334155;
+      margin: 0;
+    }
+
+    .report-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+    .report-head h2 {
+      margin: 0;
+      font-size: 1.45rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    .report-head p { margin: 6px 0 0; color: var(--muted); line-height: 1.8; max-width: 52rem; }
+    .report-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .pdf-btn {
+      width: auto;
+      padding: 8px 12px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      border-radius: 10px;
+      background: #0f172a;
+      color: #fff;
+      box-shadow: none;
+      white-space: nowrap;
+    }
+
+    .pdf-btn:hover { background: #1e293b; transform: none; }
+    .pdf-btn.secondary {
+      background: #e8eef6;
+      color: #0f172a;
+    }
+    .pdf-btn:disabled {
+      opacity: 0.65;
+      cursor: wait;
+    }
+
+    .section {
+      margin-bottom: 22px;
+      background: #fff;
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      padding: 16px 16px 18px;
+    }
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .section-head h3 {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+    }
+    .section p { margin: 0 0 10px; line-height: 1.9; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+      font-size: 0.86rem;
+    }
+    th, td {
+      padding: 8px 10px;
+      border-bottom: 1px solid #e5edf6;
+      text-align: right;
+      white-space: nowrap;
+    }
+    th { background: #eef5fc; font-weight: 800; }
+    tr:last-child td { border-bottom: none; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--panel-border); border-radius: 12px; }
+
+    .bar-row { display: grid; grid-template-columns: 92px 1fr 72px; gap: 8px; align-items: center; margin-bottom: 6px; font-size: 0.82rem; }
+    .bar-track { height: 10px; background: #e5edf6; border-radius: 999px; overflow: hidden; }
+    .bar-fill { height: 100%; background: #1565c0; border-radius: 999px; }
+
+    .examples { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .example {
+      background: #fff;
+      border: 1px solid var(--panel-border);
+      border-radius: 14px;
+      padding: 12px 14px;
+      line-height: 1.8;
+    }
+    .example button {
+      width: auto;
+      margin-top: 8px;
+      padding: 7px 10px;
+      font-size: 0.8rem;
+    }
+    ol.limits { margin: 0; padding-right: 18px; line-height: 1.9; }
+    details { margin-top: 8px; }
+    summary { cursor: pointer; font-weight: 800; }
+
+    .pdf-stage {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 794px;
+      max-height: 90vh;
+      overflow: auto;
+      background: #ffffff;
+      color: #0f172a;
+      /* Tahoma first: html2canvas shapes Persian correctly with system fonts. */
+      font-family: Tahoma, "Segoe UI", "Vazirmatn", sans-serif;
+      direction: rtl;
+      text-align: right;
+      padding: 28px 32px 40px;
+      box-sizing: border-box;
+      z-index: 2147483646;
+      opacity: 0.02;
+      pointer-events: none;
+      box-shadow: none;
+      letter-spacing: 0;
+      word-spacing: normal;
+      font-feature-settings: normal;
+      font-variant-ligatures: normal;
+      text-rendering: geometricPrecision;
+    }
+
+    .pdf-stage,
+    .pdf-stage * {
+      font-family: Tahoma, "Segoe UI", "Vazirmatn", sans-serif !important;
+      letter-spacing: 0 !important;
+    }
+
+    .pdf-stage .pdf-cover {
+      margin-bottom: 18px;
+      padding-bottom: 14px;
+      border-bottom: 2px solid #1565c0;
+    }
+
+    .pdf-stage .pdf-cover h1 {
+      margin: 0 0 6px;
+      font-size: 20px;
+      font-weight: 700;
+      color: #0f172a;
+      line-height: 1.7;
+      white-space: normal;
+    }
+
+    .pdf-stage .pdf-cover p {
+      margin: 0;
+      font-size: 12px;
+      font-weight: 400;
+      color: #64748b;
+      line-height: 1.8;
+    }
+
+    .pdf-stage .section {
+      border: 1px solid #e5edf6;
+      padding: 14px;
+      margin-bottom: 16px;
+      border-radius: 12px;
+      background: #fff;
+      break-inside: avoid;
+    }
+
+    .pdf-stage .section-head {
+      display: block;
+      margin-bottom: 10px;
+    }
+
+    .pdf-stage .pdf-btn,
+    .pdf-stage .example button,
+    .pdf-stage details summary,
+    .pdf-stage .report-actions,
+    .pdf-stage .report-head {
+      display: none !important;
+    }
+
+    .pdf-stage details {
+      display: block;
+    }
+
+    .pdf-stage details > *:not(summary) {
+      display: block !important;
+    }
+
+    .pdf-stage table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+
+    .pdf-stage th,
+    .pdf-stage td {
+      padding: 6px 7px;
+      border-bottom: 1px solid #e5edf6;
+      text-align: right;
+      white-space: normal;
+      font-weight: 400;
+      line-height: 1.55;
+    }
+
+    .pdf-stage th {
+      background: #eef5fc;
+      font-weight: 700;
+    }
+
+    .pdf-stage h3,
+    .pdf-stage .section-head h3 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.7;
+      white-space: normal;
+    }
+
+    .pdf-stage p,
+    .pdf-stage li,
+    .pdf-stage .example,
+    .pdf-stage .bar-row {
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 1.75;
+    }
+
+    .pdf-stage .table-wrap {
+      overflow: visible;
+      border: 1px solid #dbe3ee;
+      border-radius: 8px;
+    }
+
+    .pdf-stage .bar-track {
+      height: 8px;
+      background: #e5edf6;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .pdf-stage .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+    }
+
+    .pdf-stage .charts-grid {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    .pdf-stage .chart-wrap {
+      height: 200px;
+    }
+
+    @media (max-width: 980px) {
+      body { flex-direction: column; overflow: auto; }
+      #sidebar { width: 100%; min-width: 0; max-height: none; border-left: none; border-bottom: 1px solid var(--panel-border); }
+      main, #map, #report { height: auto; min-height: 70vh; }
+      .examples { grid-template-columns: 1fr; }
+      .section-head { flex-direction: column; align-items: stretch; }
+    }
+
+    @media print {
+      #sidebar, #map, .nav, .example button, .pdf-btn, .report-actions { display: none !important; }
+      #report { display: block !important; height: auto; overflow: visible; }
+      body { overflow: visible; display: block; }
+    }
+  </style>
+</head>
+<body>
+  <aside id="sidebar">
+    <div class="brand">
+      <h1>داشبورد شهر ۱۵ دقیقه‌ای اهواز</h1>
+      <p>دسترسی پیاده بلوک‌های شهری به آموزش، سلامت، خرید و تفریح در آستانه ۱۵ دقیقه.</p>
+    </div>
+
+    <div class="nav">
+      <button type="button" id="nav-map" class="active">نقشه</button>
+      <button type="button" id="nav-report">گزارش</button>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">خلاصه</h2>
+      <div class="stats-grid">
+        <div class="stat-box"><div class="stat-label">میانگین بلوک</div><div class="stat-value" id="avg-score">…</div></div>
+        <div class="stat-box"><div class="stat-label">میانگین وزنی جمعیت</div><div class="stat-value" id="weighted-score">…</div></div>
+        <div class="stat-box"><div class="stat-label">بلوک‌ها</div><div class="stat-value" id="total-blocks">…</div></div>
+        <div class="stat-box"><div class="stat-label">جمعیت</div><div class="stat-value" id="total-pop">…</div></div>
+      </div>
+      <p class="mini-note" id="load-status" hidden></p>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">نمایش نقشه</h2>
+      <label for="layer-mode">لایه تحلیلی</label>
+      <select id="layer-mode">
+        <option value="score">امتیاز ترکیبی ۰ تا ۴</option>
+        <option value="education">آموزش</option>
+        <option value="health">سلامت</option>
+        <option value="shopping">خرید</option>
+        <option value="recreation">تفریح</option>
+        <option value="neighborhood">میانگین وزنی محله</option>
+        <option value="district">میانگین وزنی منطقه</option>
+      </select>
+      <label for="score-filter">فیلتر امتیاز بلوک</label>
+      <select id="score-filter">
+        <option value="all">همه بلوک‌ها</option>
+        <option value="0">امتیاز ۰</option>
+        <option value="1">امتیاز ۱</option>
+        <option value="2">امتیاز ۲</option>
+        <option value="3">امتیاز ۳</option>
+        <option value="4">امتیاز ۴</option>
+      </select>
+      <label for="basemap">نقشه پایه</label>
+      <select id="basemap">
+        <option value="osm">خیابانی</option>
+        <option value="satellite">ماهواره‌ای</option>
+      </select>
+      <p class="mini-note">نقشه همه بلوک‌ها را می‌آورد. رنگ محله و منطقه بر اساس میانگین وزنی، نسبت به برخوردارترین پهنه همان لایه است.</p>
+    </div>
+  </aside>
+
+  <main>
+    <div id="map"></div>
+    <section id="report" hidden></section>
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script>
+    // Always hit FastAPI. Relative /accessibility only works when the page itself is served from :8000.
+    const API_ORIGIN = (location.protocol === "http:" || location.protocol === "https:")
+      && location.port === "8000"
+      ? ""
+      : "http://127.0.0.1:8000";
+    const API_BASE = `${API_ORIGIN}/accessibility`;
+    const SCORE_COLORS = { 0: "#d50000", 1: "#ff6d00", 2: "#ffd600", 3: "#2962ff", 4: "#00c853" };
+    const CATEGORY_COLORS = {
+      education: "#1565c0",
+      health: "#00897b",
+      shopping: "#ef6c00",
+      recreation: "#6a1b9a"
+    };
+    const FLAG = {
+      education: "has_education",
+      health: "has_health",
+      shopping: "has_shopping",
+      recreation: "has_recreation"
+    };
+    const MODE_LABELS = {
+      score: "امتیاز ترکیبی",
+      education: "آموزش",
+      health: "سلامت",
+      shopping: "خرید",
+      recreation: "تفریح",
+      neighborhood: "محله",
+      district: "منطقه"
+    };
+
+    const osmLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "© OpenStreetMap"
+    });
+    const satelliteLayer = L.tileLayer(
+      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      { maxZoom: 19, attribution: "Tiles © Esri" }
+    );
+    const map = L.map("map", { layers: [osmLayer], zoomControl: true }).setView([31.32, 48.69], 12);
+    const focusGroup = L.layerGroup().addTo(map);
+    const legend = L.control({ position: "bottomleft" });
+    legend.onAdd = () => L.DomUtil.create("div", "legend");
+    legend.addTo(map);
+    let layerControl = null;
+
+    let mode = "score";
+    let scoreFilter = "all";
+    let blockData = null;
+    let zoneData = null;
+    let blockLayer = null;
+    let neighborhoodLayer = null;
+    let districtLayer = null;
+    let boundaryLayer = null;
+    let fitted = false;
+    let reportData = null;
+
+    function esc(value) {
+      return String(value ?? "—")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
+
+    function fmt(value, digits = 0) {
+      if (value === null || value === undefined || Number.isNaN(Number(value))) return "—";
+      return Number(value).toLocaleString("fa-IR", {
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits
+      });
+    }
+
+    function scoreColor(score) {
+      return SCORE_COLORS[Number(score)] || SCORE_COLORS[0];
+    }
+
+    function relativeColor(value, maxValue) {
+      const t = maxValue > 0 ? Number(value) / maxValue : 0;
+      if (t <= 0) return SCORE_COLORS[0];
+      if (t < 0.2) return SCORE_COLORS[1];
+      if (t < 0.45) return SCORE_COLORS[2];
+      if (t < 0.75) return SCORE_COLORS[3];
+      return SCORE_COLORS[4];
+    }
+
+    function collectionMax(collection) {
+      if (!collection || !collection.features.length) return 0;
+      return Math.max(...collection.features.map((feature) => Number(feature.properties.weighted_avg_score) || 0));
+    }
+
+    async function fetchJson(path) {
+      const url = API_BASE + path;
+      let response;
+      try {
+        response = await fetch(url);
+      } catch (error) {
+        throw new Error(`اتصال به API برقرار نشد (${url}). سرور را روی پورت 8000 روشن کنید.`);
+      }
+      if (!response.ok) {
+        const detail = await response.text();
+        throw new Error(detail.slice(0, 280));
+      }
+      return response.json();
+    }
+
+    function setStatus(message, isError = false) {
+      const el = document.getElementById("load-status");
+      if (!el) return;
+      if (!isError) {
+        el.hidden = true;
+        el.textContent = "";
+        return;
+      }
+      el.hidden = false;
+      el.textContent = message;
+    }
+
+    function filteredBlockFeatures() {
+      if (!blockData) return [];
+      let features = blockData.features;
+      if (scoreFilter !== "all") {
+        features = features.filter((feature) => String(feature.properties.score) === scoreFilter);
+      }
+      if (mode !== "score" && FLAG[mode]) {
+        // Category layers show only served blocks so the map does not look empty/gray.
+        features = features.filter((feature) => Number(feature.properties[FLAG[mode]]) === 1);
+      }
+      return features;
+    }
+
+    function syncLayerControl() {
+      if (layerControl) {
+        map.removeControl(layerControl);
+        layerControl = null;
+      }
+      const overlays = {};
+      if (blockLayer) overlays["بلوک‌های شهری"] = blockLayer;
+      if (neighborhoodLayer) overlays["محله‌ها"] = neighborhoodLayer;
+      if (districtLayer) overlays["مناطق"] = districtLayer;
+      if (boundaryLayer) overlays["مرز شهر"] = boundaryLayer;
+      layerControl = L.control.layers(
+        { "نقشه خیابانی": osmLayer, "نقشه ماهواره‌ای": satelliteLayer },
+        overlays,
+        { position: "topright", collapsed: false }
+      ).addTo(map);
+    }
+
+    function renderLegend() {
+      const root = document.querySelector(".legend");
+      if (!root) return;
+      if ((mode === "neighborhood" || mode === "district") && zoneData) {
+        const maxValue = collectionMax(mode === "neighborhood" ? zoneData.neighborhoods : zoneData.districts);
+        const steps = [
+          [0, "صفر"],
+          [0.2, "پایین"],
+          [0.45, "میانه"],
+          [0.75, "بالا"],
+          [1, "بالاترین"]
+        ];
+        root.innerHTML = `<div class="legend-title">میانگین وزنی نسبت به بیشینه ${fmt(maxValue, 3)}</div>` +
+          steps.map(([t, label], index) => {
+            const color = index === 0 ? SCORE_COLORS[0] : relativeColor(t * maxValue, maxValue);
+            return `<div class="legend-item"><span class="legend-color" style="background:${color}"></span><span>${label}</span></div>`;
+          }).join("");
+        return;
+      }
+      if (mode === "score") {
+        root.innerHTML = `<div class="legend-title">امتیاز دسترسی</div>` +
+          [0, 1, 2, 3, 4].map((score) =>
+            `<div class="legend-item"><span class="legend-color" style="background:${scoreColor(score)}"></span><span>امتیاز ${fmt(score)}</span></div>`
+          ).join("");
+        return;
+      }
+      const color = CATEGORY_COLORS[mode];
+      root.innerHTML = `<div class="legend-title">${MODE_LABELS[mode]} در ۱۵ دقیقه</div>
+        <div class="legend-item"><span class="legend-color" style="background:${color}"></span><span>بلوک دارای دسترسی</span></div>
+        <div class="legend-item"><span>بقیه بلوک‌ها مخفی‌اند</span></div>`;
+    }
+
+    function blockStyle(feature) {
+      if (mode !== "score") {
+        return {
+          fillColor: CATEGORY_COLORS[mode],
+          color: "#0f172a",
+          weight: 0.8,
+          fillOpacity: 0.88
+        };
+      }
+      return {
+        fillColor: scoreColor(feature.properties.score),
+        color: "#334155",
+        weight: 0.35,
+        fillOpacity: 0.84
+      };
+    }
+
+    function popupHtml(properties) {
+      const lines = [
+        ["آموزش", properties.n_education],
+        ["سلامت", properties.n_health],
+        ["خرید", properties.n_shopping],
+        ["تفریح", properties.n_recreation]
+      ].map(([label, count]) => `
+        <li>
+          <span class="svc-name">${label}</span>
+          <span class="svc-val">${fmt(count)} خدمت</span>
+        </li>`).join("");
+      return `<div class="map-popup">
+        <div class="map-popup-title">بلوک ${esc(properties.block_gid)}</div>
+        <div class="map-popup-grid">
+          <div class="map-popup-row"><span class="k">محله</span><span class="v">${esc(properties.neighborhood || "خارج از مرز محله")}</span></div>
+          <div class="map-popup-row"><span class="k">جمعیت</span><span class="v">${fmt(properties.population)}</span></div>
+          <div class="map-popup-row"><span class="k">فاصله تا شبکه</span><span class="v">${fmt(properties.distance_to_network, 1)} متر</span></div>
+        </div>
+        <span class="popup-score" style="background:${scoreColor(properties.score)}">امتیاز ${fmt(properties.score)} از ۴</span>
+        <ul class="map-popup-services">${lines}</ul>
+      </div>`;
+    }
+
+    function zonePopup(properties) {
+      return `<div class="map-popup">
+        <div class="map-popup-title">${esc(properties.name)}</div>
+        <div class="map-popup-sub">${esc(properties.district_label || "بدون منطقه")}</div>
+        <div class="map-popup-grid">
+          <div class="map-popup-row"><span class="k">بلوک</span><span class="v">${fmt(properties.blocks)}</span></div>
+          <div class="map-popup-row"><span class="k">جمعیت</span><span class="v">${fmt(properties.population)}</span></div>
+          <div class="map-popup-row"><span class="k">میانگین ساده</span><span class="v">${fmt(properties.avg_score, 3)}</span></div>
+          <div class="map-popup-row"><span class="k">میانگین وزنی</span><span class="v">${fmt(properties.weighted_avg_score, 3)}</span></div>
+          <div class="map-popup-row"><span class="k">امتیاز صفر</span><span class="v">${fmt(properties.pct_score_0, 2)}٪</span></div>
+        </div>
+      </div>`;
+    }
+
+    function renderBlocks() {
+      if (!blockData) return;
+      if (blockLayer) {
+        if (map.hasLayer(blockLayer)) map.removeLayer(blockLayer);
+        blockLayer = null;
+      }
+      const features = filteredBlockFeatures();
+      blockLayer = L.geoJSON({ type: "FeatureCollection", features }, {
+        renderer: L.canvas({ padding: 0.4 }),
+        style: blockStyle,
+        onEachFeature: (feature, layer) => {
+          layer.bindPopup(popupHtml(feature.properties));
+        }
+      });
+      applyLayers();
+      if (features.length) {
+        if (!fitted || mode !== "score" || scoreFilter !== "all") {
+          map.fitBounds(blockLayer.getBounds(), { padding: [12, 12], maxZoom: mode === "score" ? 14 : 15 });
+        }
+        fitted = true;
+      }
+      if (mode === "score") {
+        setStatus("");
+      } else {
+        setStatus("");
+      }
+    }
+
+    function renderZones() {
+      if (!zoneData) return;
+      const neighborhoodMax = collectionMax(zoneData.neighborhoods);
+      const districtMax = collectionMax(zoneData.districts);
+      const styleFor = (maxValue) => (feature) => ({
+        fillColor: relativeColor(feature.properties.weighted_avg_score, maxValue),
+        color: "#0f172a",
+        weight: 1,
+        fillOpacity: 0.78
+      });
+      neighborhoodLayer = L.geoJSON(zoneData.neighborhoods, {
+        style: styleFor(neighborhoodMax),
+        onEachFeature: (feature, layer) => layer.bindPopup(zonePopup(feature.properties))
+      });
+      districtLayer = L.geoJSON(zoneData.districts, {
+        style: styleFor(districtMax),
+        onEachFeature: (feature, layer) => layer.bindPopup(zonePopup(feature.properties))
+      });
+    }
+
+    function applyLayers() {
+      const zonal = mode === "neighborhood" || mode === "district";
+      [blockLayer, neighborhoodLayer, districtLayer].forEach((layer) => {
+        if (layer && map.hasLayer(layer)) map.removeLayer(layer);
+      });
+      if (!zonal && blockLayer) blockLayer.addTo(map);
+      if (mode === "neighborhood" && neighborhoodLayer) neighborhoodLayer.addTo(map);
+      if (mode === "district" && districtLayer) districtLayer.addTo(map);
+      if (boundaryLayer) {
+        if (!map.hasLayer(boundaryLayer)) boundaryLayer.addTo(map);
+        boundaryLayer.bringToFront();
+      }
+      focusGroup.eachLayer((layer) => {
+        if (layer.bringToFront) layer.bringToFront();
+      });
+      syncLayerControl();
+      renderLegend();
+      map.invalidateSize();
+    }
+
+    function setMode(next) {
+      mode = next;
+      document.getElementById("layer-mode").value = next;
+      if (mode === "neighborhood" || mode === "district") {
+        applyLayers();
+        const layer = mode === "neighborhood" ? neighborhoodLayer : districtLayer;
+        if (layer) {
+          map.fitBounds(layer.getBounds(), { padding: [12, 12], maxZoom: 13 });
+          fitted = true;
+          const n = layer.getLayers().length;
+          setStatus("");
+        } else {
+          setStatus(`لایه ${MODE_LABELS[mode]} هنوز بارگذاری نشده است.`, true);
+        }
+        return;
+      }
+      if (blockData) {
+        renderBlocks();
+        return;
+      }
+      applyLayers();
+      setStatus("هنوز داده بلوک دریافت نشده است.", true);
+    }
+
+    function switchView(view) {
+      document.getElementById("map").hidden = view !== "map";
+      document.getElementById("report").hidden = view !== "report";
+      document.getElementById("nav-map").classList.toggle("active", view === "map");
+      document.getElementById("nav-report").classList.toggle("active", view === "report");
+      if (view === "map") setTimeout(() => map.invalidateSize(), 40);
+    }
+
+    function focusPlace(kind, name, lat, lon) {
+      switchView("map");
+      focusGroup.clearLayers();
+      if (kind === "block") {
+        setMode("score");
+        if (Number.isFinite(lat) && Number.isFinite(lon)) {
+          focusGroup.addLayer(L.circleMarker([lat, lon], {
+            radius: 8, color: "#111827", weight: 2, fillColor: "#ffd600", fillOpacity: 1
+          }));
+          map.flyTo([lat, lon], 16);
+        }
+        return;
+      }
+      setMode(kind === "district" ? "district" : "neighborhood");
+      const source = kind === "district" ? districtLayer : neighborhoodLayer;
+      let found = null;
+      if (source) {
+        source.eachLayer((layer) => {
+          if (layer.feature.properties.name === name) found = layer;
+        });
+      }
+      if (found) {
+        map.fitBounds(found.getBounds(), { padding: [20, 20], maxZoom: 15 });
+        found.openPopup();
+      } else if (Number.isFinite(lat) && Number.isFinite(lon)) {
+        map.flyTo([lat, lon], 14);
+      }
+    }
+
+    function table(headers, rows) {
+      const head = headers.map((header) => `<th>${esc(header)}</th>`).join("");
+      const body = rows.map((row) => `<tr>${row.map((cell) => `<td>${esc(cell)}</td>`).join("")}</tr>`).join("");
+      return `<div class="table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+    }
+
+    function zoneRow(row) {
+      return [
+        row.name,
+        row.district_label,
+        fmt(row.blocks),
+        fmt(row.population),
+        fmt(row.avg_score, 3),
+        fmt(row.weighted_avg_score, 3),
+        fmt(row.pct_score_0, 2),
+        fmt(row.pct_population_score_0, 2)
+      ];
+    }
+
+    function focusButton(kind, name, lat, lon, label) {
+      return `<button type="button" data-focus="${esc(kind)}" data-name="${esc(name)}" data-lat="${esc(lat)}" data-lon="${esc(lon)}">${esc(label)}</button>`;
+    }
+
+    function sectionShell(id, title, body) {
+      return `<section class="section" id="${id}" data-pdf-title="${esc(title)}">
+        <div class="section-head">
+          <h3>${esc(title)}</h3>
+          <button type="button" class="pdf-btn secondary" data-pdf="${esc(id)}">دانلود PDF این بخش</button>
+        </div>
+        ${body}
+      </section>`;
+    }
+
+    function stampDate() {
+      return new Date().toLocaleDateString("fa-IR", {
+        year: "numeric",
+        month: "long",
+        day: "numeric"
+      });
+    }
+
+    function waitFrames(count = 2) {
+      return new Promise((resolve) => {
+        const step = (left) => {
+          if (left <= 0) resolve();
+          else requestAnimationFrame(() => step(left - 1));
+        };
+        step(count);
+      });
+    }
+
+    function preparePdfSource(scope) {
+      const reportRoot = document.getElementById("report");
+      const source = scope === "full" ? reportRoot : document.getElementById(scope);
+      if (!source) return null;
+
+      const title = scope === "full"
+        ? "گزارش کامل دسترسی ۱۵ دقیقه‌ای اهواز"
+        : (source.dataset.pdfTitle || "بخش گزارش");
+      const filename = scope === "full"
+        ? "ahvaz-15min-report-full.pdf"
+        : `ahvaz-15min-${scope}.pdf`;
+
+      const stage = document.createElement("div");
+      stage.className = "pdf-stage";
+      stage.setAttribute("dir", "rtl");
+
+      const cover = document.createElement("div");
+      cover.className = "pdf-cover";
+      cover.innerHTML = `
+        <h1>${esc(title)}</h1>
+        <p>شهر اهواز · تاریخ صدور ${esc(stampDate())} · فونت: Vazirmatn</p>`;
+      stage.appendChild(cover);
+
+      if (scope === "full") {
+        [...reportRoot.children].forEach((child) => {
+          if (child.classList.contains("report-head")) return;
+          const clone = child.cloneNode(true);
+          clone.querySelectorAll("details").forEach((node) => { node.open = true; });
+          stage.appendChild(clone);
+        });
+      } else {
+        const clone = source.cloneNode(true);
+        clone.querySelectorAll("details").forEach((node) => { node.open = true; });
+        stage.appendChild(clone);
+      }
+
+      return { stage, title, filename };
+    }
+
+    async function downloadPdf(scope, button) {
+      if (typeof html2pdf === "undefined") {
+        alert("کتابخانه PDF بارگذاری نشده است. اتصال اینترنت را بررسی کنید.");
+        return;
+      }
+
+      const prepared = preparePdfSource(scope);
+      if (!prepared) {
+        alert("بخش مورد نظر پیدا نشد.");
+        return;
+      }
+
+      const { stage, filename } = prepared;
+      document.body.appendChild(stage);
+
+      if (button) {
+        button.disabled = true;
+        button.dataset.label = button.textContent;
+        button.textContent = "در حال ساخت PDF…";
+      }
+
+      try {
+        await document.fonts.ready;
+        try {
+          await Promise.all([
+            document.fonts.load("400 14px Tahoma"),
+            document.fonts.load("700 20px Tahoma"),
+            document.fonts.load("400 14px Vazirmatn"),
+            document.fonts.load("700 20px Vazirmatn")
+          ]);
+        } catch (_fontError) {
+          /* system Tahoma is enough for Persian shaping in canvas */
+        }
+        await waitFrames(3);
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
+        // Force layout so html2canvas measures real height/width.
+        const height = Math.max(stage.scrollHeight, stage.offsetHeight, 200);
+        const width = Math.max(stage.scrollWidth, 794);
+        stage.style.height = `${height}px`;
+        stage.style.opacity = "1";
+
+        const pdfFont = 'Tahoma, "Segoe UI", "Vazirmatn", sans-serif';
+        const worker = html2pdf().set({
+          margin: [10, 10, 12, 10],
+          filename,
+          image: { type: "jpeg", quality: 0.98 },
+          enableLinks: false,
+          html2canvas: {
+            scale: 2,
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: "#ffffff",
+            logging: false,
+            // letterRendering MUST stay false for Persian joining.
+            letterRendering: false,
+            foreignObjectRendering: false,
+            scrollX: 0,
+            scrollY: 0,
+            windowWidth: width,
+            windowHeight: height,
+            x: 0,
+            y: 0,
+            width,
+            height,
+            onclone: (clonedDoc) => {
+              const style = clonedDoc.createElement("style");
+              style.textContent = `
+                .pdf-stage, .pdf-stage * {
+                  font-family: ${pdfFont} !important;
+                  letter-spacing: 0 !important;
+                  word-spacing: normal !important;
+                  font-feature-settings: normal !important;
+                  font-variant-ligatures: normal !important;
+                  text-rendering: geometricPrecision !important;
+                }
+                .pdf-stage h1, .pdf-stage h3, .pdf-stage .section-head h3, .pdf-stage th {
+                  font-weight: 700 !important;
+                }
+              `;
+              clonedDoc.head.appendChild(style);
+              const cloned = clonedDoc.querySelector(".pdf-stage");
+              if (!cloned) return;
+              cloned.style.opacity = "1";
+              cloned.style.left = "0";
+              cloned.style.top = "0";
+              cloned.style.position = "static";
+              cloned.style.maxHeight = "none";
+              cloned.style.overflow = "visible";
+              cloned.style.direction = "rtl";
+              cloned.setAttribute("dir", "rtl");
+              cloned.querySelectorAll("h1, h3, th, p, td, li, span, div").forEach((node) => {
+                node.style.fontFamily = pdfFont;
+                node.style.letterSpacing = "0";
+              });
+            }
+          },
+          jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+          pagebreak: { mode: ["css", "legacy"] }
+        });
+
+        const pdfBlob = await worker.from(stage).outputPdf("blob");
+        if (!pdfBlob || pdfBlob.size < 1500) {
+          throw new Error("خروجی PDF خالی بود. دوباره تلاش کنید.");
+        }
+
+        const url = URL.createObjectURL(pdfBlob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = filename;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1500);
+      } catch (error) {
+        console.error(error);
+        alert("ساخت PDF ناموفق بود: " + error.message);
+      } finally {
+        stage.remove();
+        if (button) {
+          button.disabled = false;
+          button.textContent = button.dataset.label || "دانلود PDF";
+        }
+      }
+    }
+
+
+    let reportCharts = [];
+
+    function destroyReportCharts() {
+      reportCharts.forEach((chart) => {
+        try { chart.destroy(); } catch (_e) { /* ignore */ }
+      });
+      reportCharts = [];
+    }
+
+    function chartsBlock() {
+      return `<div class="charts-grid">
+        <div class="chart-card">
+          <h4>نمودار میله‌ای توزیع امتیاز</h4>
+          <p>تعداد بلوک در هر سطح امتیاز ۰ تا ۴</p>
+          <div class="chart-wrap"><canvas id="chart-score-bars"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h4>نمودار دایره‌ای پوشش خدمات</h4>
+          <p>سهم بلوک‌های دارای دسترسی در هر دسته</p>
+          <div class="chart-wrap"><canvas id="chart-coverage-pie"></canvas></div>
+        </div>
+      </div>
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h4>نمودار میله‌ای پوشش دسته‌ها</h4>
+          <p>درصد بلوک‌های پوشش‌داده‌شده در هر خدمت</p>
+          <div class="chart-wrap"><canvas id="chart-coverage-bars"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h4>نمودار دایره‌ای ترکیب امتیاز</h4>
+          <p>سهم بلوک‌ها بر اساس امتیاز ترکیبی</p>
+          <div class="chart-wrap"><canvas id="chart-score-pie"></canvas></div>
+        </div>
+      </div>`;
+    }
+
+    function paintReportCharts(report) {
+      if (typeof Chart === "undefined") return;
+      destroyReportCharts();
+      Chart.defaults.font.family = "Vazirmatn, Tahoma, sans-serif";
+      Chart.defaults.color = "#334155";
+      Chart.defaults.plugins.tooltip.rtl = true;
+      Chart.defaults.plugins.tooltip.backgroundColor = "rgba(15, 23, 42, 0.92)";
+      Chart.defaults.plugins.tooltip.padding = 10;
+      Chart.defaults.plugins.tooltip.cornerRadius = 8;
+      Chart.defaults.animation = { duration: 700, easing: "easeOutQuart" };
+
+      const scoreLabels = report.distribution.rows.map((row) => `امتیاز ${row.score}`);
+      const scoreBlocks = report.distribution.rows.map((row) => row.blocks);
+      const scoreColors = report.distribution.rows.map((row) => scoreColor(row.score));
+      const coverageLabels = report.distribution.coverage.map((row) => row.label);
+      const coveragePct = report.distribution.coverage.map((row) => row.block_pct);
+      const coverageColors = ["#1565c0", "#00897b", "#ef6c00", "#6a1b9a"];
+      const coverageMax = Math.max(10, Math.ceil((Math.max(...coveragePct, 1) + 2) / 5) * 5);
+      const legendOpts = {
+        position: "bottom",
+        rtl: true,
+        labels: { boxWidth: 11, boxHeight: 11, padding: 14, usePointStyle: true, pointStyle: "circle" }
+      };
+
+      const doughnutCenter = {
+        id: "doughnutCenter",
+        afterDraw(chart) {
+          if (chart.config.type !== "doughnut") return;
+          const { ctx, chartArea } = chart;
+          if (!chartArea) return;
+          const vals = chart.data.datasets[0].data.map(Number);
+          const avg = vals.reduce((a, b) => a + b, 0) / (vals.length || 1);
+          ctx.save();
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          const cx = (chartArea.left + chartArea.right) / 2;
+          const cy = (chartArea.top + chartArea.bottom) / 2;
+          ctx.fillStyle = "#64748b";
+          ctx.font = "600 11px Vazirmatn, Tahoma, sans-serif";
+          ctx.fillText("میانگین پوشش", cx, cy - 10);
+          ctx.fillStyle = "#0f172a";
+          ctx.font = "800 18px Vazirmatn, Tahoma, sans-serif";
+          ctx.fillText(`${fmt(avg, 1)}٪`, cx, cy + 12);
+          ctx.restore();
+        }
+      };
+
+      const bar1 = document.getElementById("chart-score-bars");
+      const pie1 = document.getElementById("chart-coverage-pie");
+      const bar2 = document.getElementById("chart-coverage-bars");
+      const pie2 = document.getElementById("chart-score-pie");
+      if (!bar1 || !pie1 || !bar2 || !pie2) return;
+
+      reportCharts.push(new Chart(bar1, {
+        type: "bar",
+        data: {
+          labels: scoreLabels,
+          datasets: [{
+            label: "تعداد بلوک",
+            data: scoreBlocks,
+            backgroundColor: scoreColors,
+            borderRadius: 10,
+            borderSkipped: false,
+            maxBarThickness: 46
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: (ctx) => ` ${fmt(ctx.raw)} بلوک` } }
+          },
+          scales: {
+            x: { grid: { display: false }, border: { display: false } },
+            y: {
+              beginAtZero: true,
+              ticks: { precision: 0 },
+              grid: { color: "rgba(148,163,184,0.22)" },
+              border: { display: false }
+            }
+          }
+        }
+      }));
+
+      reportCharts.push(new Chart(pie1, {
+        type: "doughnut",
+        plugins: [doughnutCenter],
+        data: {
+          labels: coverageLabels,
+          datasets: [{
+            data: coveragePct,
+            backgroundColor: coverageColors,
+            borderWidth: 3,
+            borderColor: "#ffffff",
+            hoverOffset: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: "62%",
+          plugins: {
+            legend: legendOpts,
+            tooltip: { callbacks: { label: (ctx) => ` ${ctx.label}: ${fmt(ctx.raw, 2)}٪` } }
+          }
+        }
+      }));
+
+      reportCharts.push(new Chart(bar2, {
+        type: "bar",
+        data: {
+          labels: coverageLabels,
+          datasets: [{
+            label: "درصد پوشش",
+            data: coveragePct,
+            backgroundColor: coverageColors,
+            borderRadius: 10,
+            borderSkipped: false,
+            maxBarThickness: 28
+          }]
+        },
+        options: {
+          indexAxis: "y",
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: (ctx) => ` ${fmt(ctx.raw, 2)}٪` } }
+          },
+          scales: {
+            x: {
+              beginAtZero: true,
+              max: coverageMax,
+              ticks: { callback: (v) => `${v}٪` },
+              grid: { color: "rgba(148,163,184,0.22)" },
+              border: { display: false }
+            },
+            y: { grid: { display: false }, border: { display: false } }
+          }
+        }
+      }));
+
+      reportCharts.push(new Chart(pie2, {
+        type: "pie",
+        data: {
+          labels: scoreLabels,
+          datasets: [{
+            data: scoreBlocks,
+            backgroundColor: scoreColors,
+            borderWidth: 3,
+            borderColor: "#ffffff",
+            hoverOffset: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: legendOpts,
+            tooltip: {
+              callbacks: {
+                label: (ctx) => {
+                  const total = ctx.dataset.data.reduce((a, b) => a + b, 0) || 1;
+                  const pct = (100 * ctx.raw / total);
+                  return ` ${ctx.label}: ${fmt(ctx.raw)} بلوک (${pct.toFixed(1)}٪)`;
+                }
+              }
+            }
+          }
+        }
+      }));
+    }
+
+    function renderReport(report) {
+      const meta = report.meta;
+      const zero = report.distribution.rows.find((row) => row.score === 0);
+      const block = report.examples.highest_score_block;
+      const deprived = report.examples.zero_access_neighborhood;
+      const bars = report.distribution.rows.map((row) => `
+        <div class="bar-row">
+          <span>امتیاز ${fmt(row.score)}</span>
+          <div class="bar-track"><div class="bar-fill" style="width:${Math.max(row.block_pct, row.blocks ? 1.2 : 0)}%;background:${scoreColor(row.score)}"></div></div>
+          <span>${fmt(row.block_pct, 2)}٪</span>
+        </div>`).join("");
+      const zoneHeaders = ["محله", "منطقه", "بلوک", "جمعیت", "میانگین ساده", "میانگین وزنی", "٪ بلوک صفر", "٪ جمعیت صفر"];
+      document.getElementById("report").innerHTML = `
+        <div class="report-head">
+          <div>
+            <h2>گزارش دسترسی ۱۵ دقیقه‌ای اهواز</h2>
+            <p>${esc(meta.score_definition)} جدول پایه مقاله تغییر نکرده است.</p>
+          </div>
+          <div class="report-actions">
+            <button type="button" class="pdf-btn" data-pdf="full">دانلود PDF کامل</button>
+          </div>
+        </div>
+        ${sectionShell("section-distribution", "۱. توزیع امتیاز", `
+          <p>میانگین بلوک ${fmt(meta.avg_score, 2)} از ۴ (سه رقم: ${fmt(meta.avg_score_exact, 3)}). میانگین وزنی جمعیت ${fmt(meta.weighted_avg_score, 3)}. امتیاز ۴ مشاهده نشده است.</p>
+          ${bars}
+          ${chartsBlock()}
+          ${table(
+            ["امتیاز", "برچسب", "بلوک", "٪ بلوک", "٪ تجمعی بلوک", "جمعیت", "٪ جمعیت", "٪ تجمعی جمعیت"],
+            report.distribution.rows.map((row) => [
+              fmt(row.score), row.label, fmt(row.blocks), fmt(row.block_pct, 2), fmt(row.cumulative_block_pct, 2),
+              fmt(row.population), fmt(row.population_pct, 2), fmt(row.cumulative_population_pct, 2)
+            ])
+          )}
+        `)}
+        ${sectionShell("section-combinations", "۲. ترکیب دسته‌ها", table(
+          ["ترکیب", "امتیاز", "بلوک", "٪ بلوک", "جمعیت", "٪ جمعیت"],
+          report.combinations.filter((row) => row.blocks > 0).map((row) => [
+            row.label, fmt(row.score), fmt(row.blocks), fmt(row.block_pct, 2), fmt(row.population), fmt(row.population_pct, 2)
+          ])
+        ))}
+        ${sectionShell("section-coverage", "۳. پوشش دسته‌ها", table(
+          ["دسته", "بلوک", "٪ بلوک", "جمعیت", "٪ جمعیت"],
+          report.distribution.coverage.map((row) => [row.label, fmt(row.blocks), fmt(row.block_pct, 2), fmt(row.population), fmt(row.population_pct, 2)])
+        ))}
+        ${sectionShell("section-zones", "۴. منطقه و محله", `
+          <p>${fmt(meta.unmatched_blocks)} بلوک با جمعیت ${fmt(meta.unmatched_population)} بیرون مرز محله‌اند و در این رتبه‌بندی نیستند. ${fmt(zero.block_pct, 2)}٪ بلوک‌ها و ${fmt(zero.population_pct, 2)}٪ جمعیت امتیاز صفر دارند.</p>
+          ${table(
+            ["منطقه", "بلوک", "جمعیت", "میانگین ساده", "میانگین وزنی", "٪ بلوک صفر", "آموزش", "سلامت", "خرید", "تفریح"],
+            report.zones.districts.map((row) => [
+              row.district_label, fmt(row.blocks), fmt(row.population), fmt(row.avg_score, 3), fmt(row.weighted_avg_score, 3),
+              fmt(row.pct_score_0, 2), fmt(row.education_pct, 2), fmt(row.health_pct, 2), fmt(row.shopping_pct, 2), fmt(row.recreation_pct, 2)
+            ])
+          )}
+          <h3 style="margin-top:16px;font-size:0.98rem">برخوردارترین محله‌ها</h3>
+          <p>${esc(report.zones.highlights.best_rule)}</p>
+          ${table(zoneHeaders, report.zones.highlights.best.map(zoneRow))}
+          <h3 style="margin-top:16px;font-size:0.98rem">کم‌برخوردارترین محله‌ها</h3>
+          <p>${esc(report.zones.highlights.underserved_rule)}</p>
+          ${table(zoneHeaders, report.zones.highlights.underserved.map(zoneRow))}
+          <details>
+            <summary>همه محله‌های منطبق‌شده (${fmt(report.zones.neighborhoods.length)})</summary>
+            ${table(zoneHeaders, report.zones.neighborhoods.map(zoneRow))}
+          </details>
+        `)}
+        ${sectionShell("section-examples", "۵. نمونه‌های مکانی", `
+          <div class="examples">
+            <article class="example">
+              <strong>بالاترین امتیاز</strong>
+              <div>بلوک ${fmt(block.block_gid)} در ${esc(block.neighborhood || "خارج از محله")}، امتیاز ${fmt(block.score)}. جمعیت ${fmt(block.population)}. آموزش ${fmt(block.n_education)}، سلامت ${fmt(block.n_health)}، خرید ${fmt(block.n_shopping)}، تفریح ${fmt(block.n_recreation)}.</div>
+              ${focusButton("block", block.neighborhood || "", block.lat, block.lon, "نمایش بلوک روی نقشه")}
+            </article>
+            <article class="example">
+              <strong>پرجمعیت‌ترین پهنه بدون دسترسی</strong>
+              <div>${esc(deprived.name)} (${esc(deprived.district_label)}): ${fmt(deprived.blocks)} بلوک، جمعیت ${fmt(deprived.population)}، ${fmt(deprived.pct_population_score_0, 2)}٪ جمعیت در امتیاز صفر.</div>
+              ${focusButton("neighborhood", deprived.name, deprived.lat, deprived.lon, "نمایش محله روی نقشه")}
+            </article>
+          </div>
+        `)}
+        ${sectionShell("section-sensitivity", "۶. حساسیت آستانه", table(
+          ["سناریو", "ثانیه", "میانگین بلوک", "میانگین وزنی", "٪ امتیاز ۰", "آموزش", "سلامت", "خرید", "تفریح"],
+          report.sensitivity.scenarios.map((item) => {
+            const zeroRow = item.rows.find((row) => row.score === 0);
+            return [
+              item.label, fmt(item.threshold_sec), fmt(item.avg_score, 2), fmt(item.weighted_avg_score, 3),
+              fmt(zeroRow.block_pct, 2), fmt(item.coverage[0].block_pct, 2), fmt(item.coverage[1].block_pct, 2),
+              fmt(item.coverage[2].block_pct, 2), fmt(item.coverage[3].block_pct, 2)
+            ];
+          })
+        ))}
+        ${sectionShell("section-supply", "۷. تعداد خدمت در دسترس", `
+          <p>${esc(report.supply.definition)} بازشماری با پرچم مقاله ${report.reconciliation.paper_flags_match_recount ? "اختلاف ندارد" : "اختلاف دارد"}.</p>
+          ${table(
+            ["دسته", "بدون خدمت", "یک خدمت", "دو یا بیشتر", "بیشینه", "٪ جمعیت با دو یا بیشتر"],
+            report.supply.categories.map((row) => [
+              row.label, fmt(row.blocks_with_0), fmt(row.blocks_with_1), fmt(row.blocks_with_2_or_more),
+              fmt(row.max_facilities), fmt(row.population_pct_2_or_more, 2)
+            ])
+          )}
+        `)}
+        ${sectionShell("section-inventory", "۸. موجودی خدمات مبدأ", `
+          <p>${esc(report.inventory.note)}</p>
+          ${table(
+            ["دسته", "تعداد"],
+            report.inventory.categories.map((row) => [row.label, fmt(row.facilities)])
+          )}
+          ${table(
+            ["نوع خارج از امتیاز", "تعداد", "دسته نزدیک"],
+            report.inventory.unclassified_relevant.map((row) => [row.service_type, fmt(row.facilities), row.suggested_label])
+          )}
+        `)}
+        ${sectionShell("section-limits", "۹. محدودیت‌ها", `
+          <ol class="limits">${report.limitations.map((item) => `<li>${esc(item)}</li>`).join("")}</ol>
+        `)}`;
+    }
+
+    function fillSummary(report) {
+      document.getElementById("avg-score").textContent = `${fmt(report.meta.avg_score, 2)} از ۴`;
+      document.getElementById("weighted-score").textContent = `${fmt(report.meta.weighted_avg_score, 3)} از ۴`;
+      document.getElementById("total-blocks").textContent = fmt(report.meta.blocks);
+      document.getElementById("total-pop").textContent = fmt(report.meta.population);
+    }
+
+    document.getElementById("nav-map").addEventListener("click", () => switchView("map"));
+    document.getElementById("nav-report").addEventListener("click", () => switchView("report"));
+    document.getElementById("layer-mode").addEventListener("change", (event) => setMode(event.target.value));
+    document.getElementById("score-filter").addEventListener("change", (event) => {
+      scoreFilter = event.target.value;
+      if (mode === "neighborhood" || mode === "district") setMode("score");
+      else renderBlocks();
+    });
+    document.getElementById("basemap").addEventListener("change", (event) => {
+      const next = event.target.value === "satellite" ? satelliteLayer : osmLayer;
+      const previous = event.target.value === "satellite" ? osmLayer : satelliteLayer;
+      if (map.hasLayer(previous)) map.removeLayer(previous);
+      next.addTo(map);
+      next.bringToBack();
+    });
+    document.getElementById("report").addEventListener("click", (event) => {
+      const pdfButton = event.target.closest("[data-pdf]");
+      if (pdfButton) {
+        downloadPdf(pdfButton.dataset.pdf, pdfButton);
+        return;
+      }
+      const button = event.target.closest("[data-focus]");
+      if (!button) return;
+      focusPlace(button.dataset.focus, button.dataset.name, Number(button.dataset.lat), Number(button.dataset.lon));
+    });
+
+    async function boot() {
+      setStatus("");
+      const jobs = await Promise.allSettled([
+        fetchJson("/report"),
+        fetchJson("/geojson?limit=13464&simplify=2"),
+        fetchJson("/zones"),
+        fetchJson("/boundary")
+      ]);
+      const [reportJob, blockJob, zoneJob, boundaryJob] = jobs;
+      const failures = [];
+      if (reportJob.status === "fulfilled") {
+        reportData = reportJob.value;
+        fillSummary(reportData);
+        try {
+          renderReport(reportData);
+        } catch (error) {
+          failures.push("گزارش: " + error.message);
+        }
+      } else {
+        failures.push("گزارش: " + reportJob.reason.message);
+      }
+      try {
+        if (boundaryJob.status === "fulfilled") {
+          boundaryLayer = L.geoJSON(boundaryJob.value, {
+            interactive: false,
+            style: { color: "#0f172a", weight: 2.2, fillOpacity: 0, opacity: 0.9 }
+          });
+        } else {
+          failures.push("مرز: " + boundaryJob.reason.message);
+        }
+        if (zoneJob.status === "fulfilled") {
+          zoneData = zoneJob.value;
+          renderZones();
+        } else {
+          failures.push("محله: " + zoneJob.reason.message);
+        }
+        if (blockJob.status === "fulfilled") {
+          blockData = blockJob.value;
+          renderBlocks();
+        } else {
+          failures.push("بلوک: " + blockJob.reason.message);
+          applyLayers();
+        }
+      } catch (error) {
+        failures.push("نقشه: " + error.message);
+      }
+      if (failures.length) {
+        setStatus("خطا در بارگذاری لایه‌ها. " + failures.join(" | "), true);
+      }
+      setTimeout(() => map.invalidateSize(), 80);
+    }
+
+    boot();
+  </script>
+</body>
+</html>
